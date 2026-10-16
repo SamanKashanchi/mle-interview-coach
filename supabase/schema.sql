@@ -182,3 +182,21 @@ create table if not exists public.focus_topics (
 alter table public.focus_topics enable row level security;
 drop policy if exists "read own focus_topics" on public.focus_topics;
 create policy "read own focus_topics" on public.focus_topics for select to authenticated using (user_id = auth.uid());
+
+-- Generated questions, per user. See agents/questions/README.md.
+create table if not exists public.questions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  topic_id int not null references public.topics(id),
+  company_id uuid references public.companies(id) on delete set null,
+  format text not null check (format in ('coding','ml_coding','ml_concept','ml_system_design','system_design','behavioral')),
+  difficulty int not null check (difficulty between 1 and 5),
+  minutes int not null,
+  prompt text not null,
+  rubric text[] not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists questions_user_idx on public.questions(user_id, created_at desc);
+alter table public.questions enable row level security;
+drop policy if exists "read own questions" on public.questions;
+create policy "read own questions" on public.questions for select to authenticated using (user_id = auth.uid());
