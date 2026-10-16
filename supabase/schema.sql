@@ -5,6 +5,7 @@
 -- Your answers from the setup page (one row per user).
 create table if not exists public.profiles (
   user_id          uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  name             text,
   target_roles     text,
   level            text,
   target_companies text,
@@ -24,6 +25,9 @@ create table if not exists public.job_descriptions (
   posting    text not null,
   created_at timestamptz not null default now()
 );
+-- Columns added after the first version (no-ops on a fresh install).
+alter table public.profiles add column if not exists name text;
+
 create index if not exists job_descriptions_user_idx on public.job_descriptions (user_id);
 
 -- Row-level security: each signed-in user can only see and change their own rows.

@@ -49,6 +49,7 @@ textarea { resize:vertical; }
     <form id="f">
       <section class="card">
         <h2>Your goal</h2>
+        <label for="name">Name</label><input id="name" autocomplete="name">
         <label for="target_roles">Target roles</label><input id="target_roles" placeholder="e.g. ML Engineer, Applied AI Engineer">
         <label for="level">Level</label>
         <select id="level"><option value="">Choose…</option><option>Mid-level</option><option>Senior</option><option>Staff</option><option>Principal</option></select>
@@ -85,7 +86,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
-const FIELDS = ["target_roles", "level", "target_companies", "ready_by", "minutes_per_day"];
+const FIELDS = ["name", "target_roles", "level", "target_companies", "ready_by", "minutes_per_day"];
 let user = null;
 let resume = null; // { path, name }
 
@@ -173,6 +174,7 @@ $("f").addEventListener("submit", async (e) => {
   const minutes = parseInt($("minutes_per_day").value, 10);
   const profile = {
     user_id: user.id,
+    name: $("name").value.trim(),
     target_roles: $("target_roles").value.trim(),
     level: $("level").value,
     target_companies: $("target_companies").value.trim(),
