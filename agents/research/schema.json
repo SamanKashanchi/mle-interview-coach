@@ -1,57 +1,177 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["company", "role", "summary", "rounds", "style_notes", "level_notes", "confidence", "gaps", "sources"],
+  "required": [
+    "company",
+    "role",
+    "summary",
+    "rounds",
+    "style_notes",
+    "level_notes",
+    "confidence",
+    "gaps",
+    "sources"
+  ],
   "properties": {
-    "company": { "type": "string" },
-    "role": { "type": "string" },
-    "summary": { "type": "string", "description": "Two or three sentences on what this loop is like." },
+    "company": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Two or three sentences on what this loop is like."
+    },
     "rounds": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "type", "count", "minutes", "what_it_tests", "topics", "source_ids"],
+        "required": [
+          "name",
+          "type",
+          "count",
+          "minutes",
+          "what_it_tests",
+          "topics",
+          "source_ids"
+        ],
         "properties": {
-          "name": { "type": "string", "description": "As the company calls it, e.g. 'ML system design'." },
+          "name": {
+            "type": "string",
+            "description": "As the company calls it, e.g. 'ML system design'."
+          },
           "type": {
             "type": "string",
-            "enum": ["recruiter_screen", "coding", "ml_coding", "ml_fundamentals", "ml_system_design", "system_design", "behavioral", "resume_deep_dive", "take_home", "other"]
+            "enum": [
+              "recruiter_screen",
+              "coding",
+              "ml_coding",
+              "ml_fundamentals",
+              "ml_system_design",
+              "system_design",
+              "behavioral",
+              "resume_deep_dive",
+              "take_home",
+              "other"
+            ]
           },
-          "count": { "type": ["integer", "null"], "description": "How many of this round in a typical loop." },
-          "minutes": { "type": ["integer", "null"] },
-          "what_it_tests": { "type": "string" },
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "How many of this round in a typical loop."
+          },
+          "minutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "what_it_tests": {
+            "type": "string"
+          },
           "topics": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["topic", "weight"],
+              "required": [
+                "topic",
+                "weight",
+                "detail"
+              ],
               "properties": {
-                "topic": { "type": "string" },
-                "weight": { "type": "number" }
+                "topic": {
+                  "type": "string",
+                  "enum": [
+                    "FILLED_AT_RUNTIME_FROM_TOPICS_TABLE"
+                  ],
+                  "description": "Must be a name from the topic list. The enum is replaced with the current topics table when the agent runs."
+                },
+                "weight": {
+                  "type": "number"
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Specifics for this company, e.g. 'feed ranking'."
+                }
               }
             }
           },
-          "source_ids": { "type": "array", "items": { "type": "integer" }, "description": "Indexes into sources." }
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Indexes into sources."
+          }
         }
       }
     },
-    "style_notes": { "type": "array", "items": { "type": "string" } },
-    "level_notes": { "type": ["string", "null"] },
-    "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
-    "gaps": { "type": "array", "items": { "type": "string" } },
+    "style_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "level_notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "sources": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "url", "title", "kind"],
+        "required": [
+          "id",
+          "url",
+          "title",
+          "kind"
+        ],
         "properties": {
-          "id": { "type": "integer" },
-          "url": { "type": "string" },
-          "title": { "type": "string" },
-          "kind": { "type": "string", "enum": ["official", "candidate_report", "guide", "forum", "job_posting", "other"] }
+          "id": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "official",
+              "candidate_report",
+              "guide",
+              "forum",
+              "job_posting",
+              "other"
+            ]
+          }
         }
       }
     }
