@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CalendarCheck, Crosshair, ListOrdered, UserRound } from 'lucide-react'
 import { Logo } from '../components/Logo'
-import {  } from '../components/ui'
 import { cx } from '../lib/cx'
 import { isMock } from '../lib/db'
 import { useAuth } from '../lib/useAuth'
