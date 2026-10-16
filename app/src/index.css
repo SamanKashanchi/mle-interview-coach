@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* Colors are tokens so light and dark follow the system setting. One accent: teal. */
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --raised: #f2f0ec;
+  --ink: #1c1b19;
+  --muted: #66645e;
+  --faint: #8f8c85;
+  --line: #e6e3dd;
+  --accent: #0f766e;
+  --accent-hover: #0d645d;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3f1ef;
+  --accent-text: #0f6b64;
+  --warn-soft: #fbf1dc;
+  --warn-text: #8a5a00;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121211;
+    --surface: #1a1a18;
+    --raised: #242422;
+    --ink: #ecebe7;
+    --muted: #a4a29b;
+    --faint: #7c7a74;
+    --line: #2d2c29;
+    --accent: #3cb3a6;
+    --accent-hover: #55c4b8;
+    --accent-ink: #08201d;
+    --accent-soft: #15302c;
+    --accent-text: #6fd0c4;
+    --warn-soft: #33290f;
+    --warn-text: #f0c46a;
+    --danger: #f1857b;
+    --danger-soft: #3a1c19;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-text: var(--warn-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  line-height: 1.55;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

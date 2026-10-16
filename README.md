@@ -3,26 +3,52 @@
 A personal, adaptive interview coach for ML Engineer roles: it learns your targets, researches what those
 companies test, and runs daily practice that closes the gap.
 
-## Status
+## How it fits together
 
-Early. Only the setup page exists so far: name, level, targets (company + role + optional job posting),
-an optional resume, a ready-by date and minutes per day. Data is stored in Supabase.
+1. **Inputs**: you enter your level, targets (company + role + optional job posting), resume, ready-by date
+   and minutes per day in the portal.
+2. **Research** (`agents/research/`): Claude builds one shared interview profile per company + role.
+3. **Plan** (`agents/blueprint/`): a per-user weight for each of 42 topics, from research × posting × resume.
+4. **Questions** (`agents/questions/`): a daily set sampled from the plan, each with a rubric.
 
-Hosting is not decided yet; the page runs locally.
+Steps 2 to 4 are run by Claude from the project chat. The portal reads their output and shows what's pending.
 
-## Setup
+## The portal (`app/`)
 
-1. **Create the database.** In the Supabase dashboard, open SQL Editor, paste `supabase/schema.sql` and run it.
-   It creates the `companies`, `roles`, `profiles` and `targets` tables, a private `resumes` storage bucket, and
-   row-level security so each signed-in user only sees their own data.
-2. **Allow the local sign-in redirect.** Authentication -> URL Configuration: set Site URL to
-   `http://localhost:8000` (and add it under Redirect URLs).
-3. **Point the page at your project.** Copy the Project URL and the anon / publishable key from
-   Project Settings -> API into `web/config.js`. Never use the `service_role` key here.
-4. **Run it.**
-   ```bash
-   cd web && python3 -m http.server 8000
-   ```
-   Open http://localhost:8000, enter your email, and click the link Supabase sends you.
-5. **Lock sign-ups** once your account exists: Authentication -> Sign In / Providers -> turn off
-   "Allow new users to sign up", so nobody else can create an account on your project.
+A Vite + React + TypeScript app styled with Tailwind. Pages: sign-in, a first-run setup wizard, then
+Today, Question, Plan, Targets (with each company's research) and Profile. All database access goes
+through `app/src/lib/db.ts`.
+
+### Run it locally (Windows PowerShell)
+
+```powershell
+cd app
+npm install
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+Open http://localhost:8000, enter your email, and click the link Supabase sends you.
+
+To try it on fixture data with no database, run `npm run mock` instead of `npm run dev`. Add `?mock=new`
+to the URL to see the setup wizard, or `?mock=signedout` for the sign-in page.
+
+### Checks
+
+```powershell
+npm run build
+npm run lint
+npm run build:mock
+npx vite preview --mode mock
+```
+
+With the preview running, `npm run screenshots` (in a second terminal) clicks through every page at desktop
+and phone widths, in light and dark, fails on page errors or sideways scrolling, and saves images to
+`app/screenshots/`.
+
+## Database setup (already done for the live project)
+
+1. In the Supabase dashboard, open SQL Editor and run `supabase/schema.sql`, then `supabase/seed_topics.sql`.
+2. Authentication -> URL Configuration: set Site URL to `http://localhost:8000` (and add it under Redirect URLs).
+3. Put the Project URL and the publishable key in `app/.env.local`. Never use the `service_role` key here.
+4. Once your account exists, turn off "Allow new users to sign up" under Authentication -> Sign In / Providers.
