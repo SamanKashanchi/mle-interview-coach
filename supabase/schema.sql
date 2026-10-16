@@ -90,3 +90,79 @@ drop policy if exists "own resume files" on storage.objects;
 create policy "own resume files" on storage.objects for all to authenticated
   using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Research: shared, one profile per company + role. Users can read; only the
+-- research agent (service role, bypasses RLS) writes.
+
+create table if not exists public.topics (
+  id serial primary key,
+  name text not null unique,
+  category text not null check (category in ('coding','ml_coding','ml_fundamentals','deep_learning','ml_system_design','system_design','behavioral')),
+  description text
+);
+-- Seed rows for topics live in supabase/seed_topics.sql.
+
+create table if not exists public.research_profiles (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  role_id uuid not null references public.roles(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending','running','done','failed')),
+  summary text,
+  style_notes text[] not null default '{}',
+  level_notes text,
+  confidence text check (confidence in ('low','medium','high')),
+  gaps text[] not null default '{}',
+  raw jsonb,
+  error text,
+  researched_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (company_id, role_id)
+);
+
+create table if not exists public.profile_sources (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.research_profiles(id) on delete cascade,
+  url text not null,
+  title text,
+  kind text check (kind in ('official','candidate_report','guide','forum','job_posting','other'))
+);
+create index if not exists profile_sources_profile_idx on public.profile_sources(profile_id);
+
+create table if not exists public.profile_rounds (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.research_profiles(id) on delete cascade,
+  position int not null,
+  name text not null,
+  type text not null check (type in ('recruiter_screen','coding','ml_coding','ml_fundamentals','ml_system_design','system_design','behavioral','resume_deep_dive','take_home','other')),
+  count int,
+  minutes int,
+  what_it_tests text,
+  source_ids uuid[] not null default '{}'
+);
+create index if not exists profile_rounds_profile_idx on public.profile_rounds(profile_id);
+
+create table if not exists public.round_topics (
+  round_id uuid not null references public.profile_rounds(id) on delete cascade,
+  topic_id int not null references public.topics(id),
+  weight real not null check (weight >= 0 and weight <= 1),
+  detail text,
+  primary key (round_id, topic_id)
+);
+create index if not exists round_topics_topic_idx on public.round_topics(topic_id);
+
+alter table public.topics enable row level security;
+alter table public.research_profiles enable row level security;
+alter table public.profile_sources enable row level security;
+alter table public.profile_rounds enable row level security;
+alter table public.round_topics enable row level security;
+
+drop policy if exists "read topics" on public.topics;
+create policy "read topics" on public.topics for select to authenticated using (true);
+drop policy if exists "read research_profiles" on public.research_profiles;
+create policy "read research_profiles" on public.research_profiles for select to authenticated using (true);
+drop policy if exists "read profile_sources" on public.profile_sources;
+create policy "read profile_sources" on public.profile_sources for select to authenticated using (true);
+drop policy if exists "read profile_rounds" on public.profile_rounds;
+create policy "read profile_rounds" on public.profile_rounds for select to authenticated using (true);
+drop policy if exists "read round_topics" on public.round_topics;
+create policy "read round_topics" on public.round_topics for select to authenticated using (true);
