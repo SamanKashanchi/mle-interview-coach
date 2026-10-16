@@ -20,10 +20,10 @@ You will be given a company, a role, and the list of topics you may use. The pro
 
 ## Rules
 
-- Every round must cite at least one source by index in `sources`. Do not invent rounds or topics that no source supports.
+- Every round must be backed by at least one source you list. Do not invent rounds or topics that no source supports.
 - Paraphrase. Never copy interview questions verbatim from a source.
 - Every topic must be a name from the topic list you are given. Put company-specific specifics (e.g. "feed ranking", "numpy only") in `detail`. If something truly fits no topic, mention it in `style_notes` instead.
 - Topic weights within a round are your estimate of how often each topic appears, between 0 and 1. They do not need to sum to 1.
 - Be honest about uncertainty: set `confidence`, and list what you could not find in `gaps`.
 
-Return only the profile in the required JSON format.
+Write up your findings when you are done; they are turned into the structured profile afterwards.
