@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLE Coach Setup</title>
+<style>
+:root { --bg:#f7f7f5; --surface:#fff; --text:#1d1d1b; --muted:#6b6b66; --border:#e3e2dc; --accent:#2f5bd3; --good:#1f7a4d; --bad:#b3261e; --field:#fbfbfa; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161615; --surface:#1f1f1d; --text:#ecebe6; --muted:#a09f98; --border:#33332f; --accent:#7b9cff; --good:#5cc28f; --bad:#f08a80; --field:#262624; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+h1 { margin:0 0 4px; font-size:1.7rem; } h2 { margin:0 0 4px; font-size:1.1rem; }
+.muted { color:var(--muted); margin-top:0; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; margin:18px 0; }
+label { display:block; font-size:.9rem; font-weight:600; margin:12px 0 4px; }
+input, select, textarea { width:100%; padding:9px 10px; font:inherit; color:var(--text); background:var(--field); border:1px solid var(--border); border-radius:8px; }
+textarea { resize:vertical; }
+.pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.group + .group { border-top:1px dashed var(--border); margin-top:14px; padding-top:4px; }
+.remove { float:right; background:none; border:0; color:var(--muted); font:inherit; font-size:.85rem; cursor:pointer; padding:12px 0 0; }
+.link { background:none; border:0; color:var(--accent); font:inherit; padding:10px 0 0; cursor:pointer; }
+.actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.btn { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:12px 22px; font:inherit; font-weight:600; cursor:pointer; }
+.btn:disabled { opacity:.6; }
+.upload { display:inline-block; margin:0; padding:10px 18px; border:1px solid var(--accent); color:var(--accent); border-radius:8px; cursor:pointer; font-weight:600; }
+.top { display:flex; justify-content:flex-end; gap:12px; color:var(--muted); font-size:.9rem; }
+.ok { color:var(--good); } .err { color:var(--bad); }
+[hidden] { display:none !important; }
+@media (max-width:600px) { .pair { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="top" id="account" hidden><span id="who"></span><button class="link" style="padding:0" id="signout">Sign out</button></div>
+
+  <section id="signin" hidden>
+    <h1>MLE Interview Coach</h1>
+    <p class="muted">Sign in with your email. We'll send you a one-time link.</p>
+    <form id="signin-form" class="card">
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="email">
+      <p class="actions"><button class="btn" type="submit">Send sign-in link</button><span id="signin-status"></span></p>
+    </form>
+  </section>
+
+  <section id="setup" hidden>
+    <h1>Let's set your target</h1>
+    <p class="muted">Tell the coach where you're headed. You can come back and edit this anytime.</p>
+    <form id="f">
+      <section class="card">
+        <h2>Your goal</h2>
+        <label for="name">Name</label><input id="name" autocomplete="name">
+        <label for="level">Level you're aiming for</label>
+        <select id="level"><option value="">Choose…</option><option>Mid-level</option><option>Senior</option><option>Staff</option><option>Principal</option></select>
+      </section>
+      <section class="card">
+        <h2>Targets</h2>
+        <p class="muted">Each company and role you're aiming for. Paste the job posting if you have one; the coach uses it to work out what they test.</p>
+        <div id="targets"></div>
+        <button type="button" class="link" id="add-target">+ Add another target</button>
+        <datalist id="company-list"></datalist><datalist id="role-list"></datalist>
+      </section>
+      <section class="card">
+        <h2>Your resume</h2>
+        <p class="muted">Optional. PDF or plain text. The coach uses it for project deep-dive questions.</p>
+        <div class="actions">
+          <label class="upload" for="resume">Upload resume</label>
+          <input type="file" id="resume" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" hidden>
+          <span id="resume-status" class="muted">No file yet.</span>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Your timeline</h2>
+        <label for="ready_by">Ready by</label><input type="date" id="ready_by">
+        <label for="minutes_per_day">Minutes per day you can practice</label><input id="minutes_per_day" inputmode="numeric" placeholder="60">
+      </section>
+      <div class="actions"><button class="btn" type="submit" id="save">Save</button><span id="status"></span></div>
+    </form>
+  </section>
+</main>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const FIELDS = ["name", "level", "ready_by", "minutes_per_day"];
+let user = null;
+let resume = null; // { path, name }
+
+const setStatus = (el, msg, cls = "") => { $(el).textContent = msg; $(el).className = cls; };
+
+// ---- Sign-in -------------------------------------------------------------
+$("signin-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  setStatus("signin-status", "Sending…");
+  const { error } = await sb.auth.signInWithOtp({
+    email: $("email").value.trim(),
+    options: { emailRedirectTo: location.origin + location.pathname },
+  });
+  setStatus("signin-status", error ? error.message : "Check your email for the link.", error ? "err" : "ok");
+});
+$("signout").addEventListener("click", () => sb.auth.signOut());
+
+sb.auth.onAuthStateChange((_event, session) => {
+  const next = session?.user ?? null;
+  if (next?.id === user?.id) return;
+  user = next;
+  $("signin").hidden = !!user;
+  $("setup").hidden = !user;
+  $("account").hidden = !user;
+  if (user) { $("who").textContent = user.email; load(); }
+});
+
+// ---- Target rows ---------------------------------------------------------
+function addTarget(values = {}) {
+  const row = document.createElement("div");
+  row.className = "group";
+  row.innerHTML = `<button type="button" class="remove">Remove</button>
+    <div class="pair"><div><label>Company</label><input data-k="company" list="company-list" placeholder="e.g. Databricks"></div>
+    <div><label>Role</label><input data-k="role" list="role-list" placeholder="e.g. ML Engineer"></div></div>
+    <label>Job posting (optional)</label><textarea data-k="job_description" rows="4" placeholder="Paste the full job description"></textarea>`;
+  row.querySelectorAll("[data-k]").forEach((el) => { el.value = values[el.dataset.k] || ""; });
+  row.querySelector(".remove").addEventListener("click", () => { row.remove(); if (!$("targets").children.length) addTarget(); });
+  $("targets").appendChild(row);
+}
+$("add-target").addEventListener("click", () => addTarget());
+
+async function loadSuggestions() {
+  const [{ data: companies }, { data: roles }] = await Promise.all([
+    sb.from("companies").select("name").order("name"),
+    sb.from("roles").select("name").order("name"),
+  ]);
+  const fill = (id, rows) => { $(id).innerHTML = ""; (rows || []).forEach((r) => { const o = document.createElement("option"); o.value = r.name; $(id).appendChild(o); }); };
+  fill("company-list", companies);
+  fill("role-list", roles);
+}
+
+// ---- Resume --------------------------------------------------------------
+async function showResume() {
+  const el = $("resume-status");
+  if (!resume) { el.textContent = "No file yet."; return; }
+  const { data } = await sb.storage.from("resumes").createSignedUrl(resume.path, 3600);
+  el.innerHTML = "";
+  const a = document.createElement("a");
+  a.textContent = resume.name;
+  if (data) { a.href = data.signedUrl; a.target = "_blank"; }
+  el.append(a, " uploaded");
+}
+$("resume").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  setStatus("resume-status", "Uploading…", "muted");
+  const ext = (file.name.split(".").pop() || "pdf").toLowerCase();
+  const path = `${user.id}/resume.${ext}`;
+  const { error } = await sb.storage.from("resumes").upload(path, file, { upsert: true, contentType: file.type || undefined });
+  if (error) { setStatus("resume-status", `Upload failed: ${error.message}`, "err"); return; }
+  resume = { path, name: file.name };
+  const { error: saveErr } = await sb.from("profiles").upsert({ user_id: user.id, resume_path: path, resume_name: file.name, updated_at: new Date().toISOString() });
+  if (saveErr) { setStatus("resume-status", `Saved the file but not the profile: ${saveErr.message}`, "err"); return; }
+  showResume();
+});
+
+// ---- Load and save -------------------------------------------------------
+async function load() {
+  const [{ data: profile, error: pErr }, { data: targets, error: tErr }] = await Promise.all([
+    sb.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+    sb.from("targets").select("job_description, companies(name), roles(name)").eq("user_id", user.id).order("created_at"),
+  ]);
+  if (pErr || tErr) setStatus("status", (pErr || tErr).message, "err");
+  const p = profile || {};
+  FIELDS.forEach((k) => { $(k).value = p[k] ?? ""; });
+  resume = p.resume_path ? { path: p.resume_path, name: p.resume_name || "resume" } : null;
+  showResume();
+  $("targets").innerHTML = "";
+  const rows = (targets || []).map((t) => ({ company: t.companies?.name, role: t.roles?.name, job_description: t.job_description }));
+  (rows.length ? rows : [{}]).forEach(addTarget);
+  loadSuggestions();
+}
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("save").disabled = true;
+  setStatus("status", "Saving…");
+  const minutes = parseInt($("minutes_per_day").value, 10);
+  const profile = {
+    user_id: user.id,
+    name: $("name").value.trim(),
+    level: $("level").value,
+    ready_by: $("ready_by").value || null,
+    minutes_per_day: Number.isFinite(minutes) ? minutes : null,
+    updated_at: new Date().toISOString(),
+  };
+  const rows = [...$("targets").children].map((row) => {
+    const r = {}; row.querySelectorAll("[data-k]").forEach((el) => { r[el.dataset.k] = el.value.trim(); }); return r;
+  }).filter((r) => r.company || r.role || r.job_description);
+  try {
+    const incomplete = rows.find((r) => !r.company || !r.role);
+    if (incomplete) throw new Error("Each target needs both a company and a role.");
+    let { error } = await sb.from("profiles").upsert(profile);
+    if (error) throw error;
+    // Resolve names to shared company/role rows, creating new ones as needed.
+    const resolved = [];
+    for (const r of rows) {
+      const [{ data: company_id, error: cErr }, { data: role_id, error: rErr }] = await Promise.all([
+        sb.rpc("ensure_company", { p_name: r.company }),
+        sb.rpc("ensure_role", { p_name: r.role }),
+      ]);
+      if (cErr || rErr) throw cErr || rErr;
+      if (!resolved.some((x) => x.company_id === company_id && x.role_id === role_id)) {
+        resolved.push({ user_id: user.id, company_id, role_id, job_description: r.job_description || null });
+      }
+    }
+    // Targets are replaced as a set: simple, and there are only a handful.
+    ({ error } = await sb.from("targets").delete().eq("user_id", user.id));
+    if (error) throw error;
+    if (resolved.length) {
+      ({ error } = await sb.from("targets").insert(resolved));
+      if (error) throw error;
+    }
+    loadSuggestions();
+    setStatus("status", "Saved.", "ok");
+  } catch (err) {
+    setStatus("status", `Couldn't save: ${err.message}`, "err");
+  } finally {
+    $("save").disabled = false;
+  }
+});
+
+// Show the sign-in screen if there's no session yet.
+const { data: { session } } = await sb.auth.getSession();
+if (!session) { $("signin").hidden = false; }
+</script>
+</body>
+</html>
