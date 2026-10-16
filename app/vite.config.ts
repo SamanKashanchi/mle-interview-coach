@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
   // Mock builds use relative paths so the folder can be opened from any static host.
   base: mode === 'mock' ? './' : '/',
+  // Escape non-ASCII characters in the bundle so any static host serves it intact.
+  esbuild: { charset: 'ascii' },
   server: { port: 8000, strictPort: true },
   preview: { port: 8000, strictPort: true },
   build: {

@@ -173,3 +173,42 @@ export interface SessionUser {
   id: string
   email: string
 }
+
+export type Verdict = 'met' | 'partial' | 'missed'
+
+export interface RubricScore {
+  point: string
+  verdict: Verdict
+  note: string
+}
+
+export interface Answer {
+  id: string
+  user_id: string
+  question_id: string
+  body: string
+  seconds_spent: number | null
+  status: 'pending' | 'graded'
+  created_at: string
+}
+
+export interface Grade {
+  answer_id: string
+  score: number
+  rubric_scores: RubricScore[]
+  strengths: string[]
+  improvements: string[]
+  model_answer: string | null
+  graded_at: string
+}
+
+export interface AnswerView extends Answer {
+  grade: Grade | null
+}
+
+/** The latest attempt at a question, for status badges. */
+export interface AttemptSummary {
+  question_id: string
+  status: Answer['status']
+  score: number | null
+}

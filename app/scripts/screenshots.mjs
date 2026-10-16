@@ -15,7 +15,9 @@ const PAGES = [
   { name: '02-onboarding-about', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you' },
   { name: '03-onboarding-targets', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you', act: onboardingToTargets },
   { name: '04-today', scenario: 'full', path: '/', ready: "text=Today's questions" },
-  { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Show what a strong answer covers', act: (p) => p.click('text=Show what a strong answer covers') },
+  { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Submit for grading', act: (p) => p.getByLabel('Your answer').fill('First I would check whether the holdout still exists and is randomized...') },
+  { name: '05b-question-graded', scenario: 'full', path: '/questions/q2', ready: 'text=Do next time', act: (p) => p.click('text=Model answer') },
+  { name: '05c-question-pending', scenario: 'full', path: '/questions/q3', ready: 'text=Submit for grading', act: submitAnswer },
   { name: '06-plan', scenario: 'full', path: '/plan', ready: 'text=Model evaluation and metrics' },
   { name: '07-targets', scenario: 'full', path: '/targets', ready: 'text=Research ready' },
   { name: '08-research', scenario: 'full', path: '/targets/t-whatnot', ready: 'text=The loop, round by round', act: (p) => p.getByRole('button', { name: /Recommender systems/ }).click() },
@@ -27,6 +29,12 @@ const VIEWPORTS = [
   { name: 'desktop', viewport: { width: 1280, height: 860 } },
   { name: 'phone', viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true },
 ]
+
+async function submitAnswer(page) {
+  await page.getByLabel('Your answer').fill('Situation: our lead routing sent good leads to busy designers...')
+  await page.click('text=Submit for grading')
+  await page.waitForSelector('text=Waiting for a grade')
+}
 
 async function onboardingToTargets(page) {
   await page.getByLabel('Your name').fill('Sam')
