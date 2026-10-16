@@ -18,6 +18,7 @@ input, select, textarea { width:100%; padding:9px 10px; font:inherit; color:var(
 textarea { resize:vertical; }
 .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .group + .group { border-top:1px dashed var(--border); margin-top:14px; padding-top:4px; }
+.remove { float:right; background:none; border:0; color:var(--muted); font:inherit; font-size:.85rem; cursor:pointer; padding:12px 0 0; }
 .link { background:none; border:0; color:var(--accent); font:inherit; padding:10px 0 0; cursor:pointer; }
 .actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .btn { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:12px 22px; font:inherit; font-weight:600; cursor:pointer; }
@@ -50,16 +51,15 @@ textarea { resize:vertical; }
       <section class="card">
         <h2>Your goal</h2>
         <label for="name">Name</label><input id="name" autocomplete="name">
-        <label for="target_roles">Target roles</label><input id="target_roles" placeholder="e.g. ML Engineer, Applied AI Engineer">
-        <label for="level">Level</label>
+        <label for="level">Level you're aiming for</label>
         <select id="level"><option value="">Choose…</option><option>Mid-level</option><option>Senior</option><option>Staff</option><option>Principal</option></select>
-        <label for="target_companies">Target companies</label><input id="target_companies" placeholder="e.g. Anthropic, Databricks, Meta">
       </section>
       <section class="card">
-        <h2>Job descriptions</h2>
-        <p class="muted">Paste the text of postings you're aiming for. The coach will use them to work out what they test.</p>
-        <div id="jd"></div>
-        <button type="button" class="link" id="add-jd">+ Add another job description</button>
+        <h2>Targets</h2>
+        <p class="muted">Each company and role you're aiming for. Paste the job posting if you have one; the coach uses it to work out what they test.</p>
+        <div id="targets"></div>
+        <button type="button" class="link" id="add-target">+ Add another target</button>
+        <datalist id="company-list"></datalist><datalist id="role-list"></datalist>
       </section>
       <section class="card">
         <h2>Your resume</h2>
@@ -86,7 +86,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
-const FIELDS = ["name", "target_roles", "level", "target_companies", "ready_by", "minutes_per_day"];
+const FIELDS = ["name", "level", "ready_by", "minutes_per_day"];
 let user = null;
 let resume = null; // { path, name }
 
@@ -114,17 +114,29 @@ sb.auth.onAuthStateChange((_event, session) => {
   if (user) { $("who").textContent = user.email; load(); }
 });
 
-// ---- Job description rows ------------------------------------------------
-function addJd(values = {}) {
+// ---- Target rows ---------------------------------------------------------
+function addTarget(values = {}) {
   const row = document.createElement("div");
   row.className = "group";
-  row.innerHTML = `<div class="pair"><div><label>Company</label><input data-k="company"></div>
-    <div><label>Role</label><input data-k="role"></div></div>
-    <label>Posting text</label><textarea data-k="posting" rows="5" placeholder="Paste the full job description"></textarea>`;
+  row.innerHTML = `<button type="button" class="remove">Remove</button>
+    <div class="pair"><div><label>Company</label><input data-k="company" list="company-list" placeholder="e.g. Databricks"></div>
+    <div><label>Role</label><input data-k="role" list="role-list" placeholder="e.g. ML Engineer"></div></div>
+    <label>Job posting (optional)</label><textarea data-k="job_description" rows="4" placeholder="Paste the full job description"></textarea>`;
   row.querySelectorAll("[data-k]").forEach((el) => { el.value = values[el.dataset.k] || ""; });
-  $("jd").appendChild(row);
+  row.querySelector(".remove").addEventListener("click", () => { row.remove(); if (!$("targets").children.length) addTarget(); });
+  $("targets").appendChild(row);
 }
-$("add-jd").addEventListener("click", () => addJd());
+$("add-target").addEventListener("click", () => addTarget());
+
+async function loadSuggestions() {
+  const [{ data: companies }, { data: roles }] = await Promise.all([
+    sb.from("companies").select("name").order("name"),
+    sb.from("roles").select("name").order("name"),
+  ]);
+  const fill = (id, rows) => { $(id).innerHTML = ""; (rows || []).forEach((r) => { const o = document.createElement("option"); o.value = r.name; $(id).appendChild(o); }); };
+  fill("company-list", companies);
+  fill("role-list", roles);
+}
 
 // ---- Resume --------------------------------------------------------------
 async function showResume() {
@@ -154,17 +166,19 @@ $("resume").addEventListener("change", async (e) => {
 
 // ---- Load and save -------------------------------------------------------
 async function load() {
-  const [{ data: profile, error: pErr }, { data: jds, error: jErr }] = await Promise.all([
+  const [{ data: profile, error: pErr }, { data: targets, error: tErr }] = await Promise.all([
     sb.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-    sb.from("job_descriptions").select("company, role, posting").eq("user_id", user.id).order("created_at"),
+    sb.from("targets").select("job_description, companies(name), roles(name)").eq("user_id", user.id).order("created_at"),
   ]);
-  if (pErr || jErr) setStatus("status", (pErr || jErr).message, "err");
+  if (pErr || tErr) setStatus("status", (pErr || tErr).message, "err");
   const p = profile || {};
   FIELDS.forEach((k) => { $(k).value = p[k] ?? ""; });
   resume = p.resume_path ? { path: p.resume_path, name: p.resume_name || "resume" } : null;
   showResume();
-  $("jd").innerHTML = "";
-  (jds && jds.length ? jds : [{}]).forEach(addJd);
+  $("targets").innerHTML = "";
+  const rows = (targets || []).map((t) => ({ company: t.companies?.name, role: t.roles?.name, job_description: t.job_description }));
+  (rows.length ? rows : [{}]).forEach(addTarget);
+  loadSuggestions();
 }
 
 $("f").addEventListener("submit", async (e) => {
@@ -175,26 +189,39 @@ $("f").addEventListener("submit", async (e) => {
   const profile = {
     user_id: user.id,
     name: $("name").value.trim(),
-    target_roles: $("target_roles").value.trim(),
     level: $("level").value,
-    target_companies: $("target_companies").value.trim(),
     ready_by: $("ready_by").value || null,
     minutes_per_day: Number.isFinite(minutes) ? minutes : null,
     updated_at: new Date().toISOString(),
   };
-  const jds = [...$("jd").children].map((row) => {
+  const rows = [...$("targets").children].map((row) => {
     const r = {}; row.querySelectorAll("[data-k]").forEach((el) => { r[el.dataset.k] = el.value.trim(); }); return r;
-  }).filter((r) => r.posting);
+  }).filter((r) => r.company || r.role || r.job_description);
   try {
+    const incomplete = rows.find((r) => !r.company || !r.role);
+    if (incomplete) throw new Error("Each target needs both a company and a role.");
     let { error } = await sb.from("profiles").upsert(profile);
     if (error) throw error;
-    // Job descriptions are replaced as a set: simple, and there are only a handful.
-    ({ error } = await sb.from("job_descriptions").delete().eq("user_id", user.id));
+    // Resolve names to shared company/role rows, creating new ones as needed.
+    const resolved = [];
+    for (const r of rows) {
+      const [{ data: company_id, error: cErr }, { data: role_id, error: rErr }] = await Promise.all([
+        sb.rpc("ensure_company", { p_name: r.company }),
+        sb.rpc("ensure_role", { p_name: r.role }),
+      ]);
+      if (cErr || rErr) throw cErr || rErr;
+      if (!resolved.some((x) => x.company_id === company_id && x.role_id === role_id)) {
+        resolved.push({ user_id: user.id, company_id, role_id, job_description: r.job_description || null });
+      }
+    }
+    // Targets are replaced as a set: simple, and there are only a handful.
+    ({ error } = await sb.from("targets").delete().eq("user_id", user.id));
     if (error) throw error;
-    if (jds.length) {
-      ({ error } = await sb.from("job_descriptions").insert(jds.map((j) => ({ ...j, user_id: user.id }))));
+    if (resolved.length) {
+      ({ error } = await sb.from("targets").insert(resolved));
       if (error) throw error;
     }
+    loadSuggestions();
     setStatus("status", "Saved.", "ok");
   } catch (err) {
     setStatus("status", `Couldn't save: ${err.message}`, "err");
