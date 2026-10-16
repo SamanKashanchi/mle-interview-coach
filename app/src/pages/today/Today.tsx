@@ -1,26 +1,30 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, Hourglass, Sparkles } from 'lucide-react'
+import { CheckCircle2, ChevronRight, CircleDashed, Hourglass, Sparkles } from 'lucide-react'
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
 import { daysUntil, formatDate, greeting, isToday } from '../../lib/format'
-import type { Profile, QuestionView, TargetView } from '../../lib/types'
-import { EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
+import type { AttemptSummary, Profile, QuestionView, TargetView } from '../../lib/types'
+import { Badge, EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
 import { QuestionMeta } from '../question/meta'
 
 export default function Today() {
   const { data, error, loading, reload } = useAsync(
-    () => Promise.all([db.getProfile(), db.getLatestQuestions(), db.listTargets()]),
+    async () => {
+      const [profile, questions, targets] = await Promise.all([db.getProfile(), db.getLatestQuestions(), db.listTargets()])
+      const attempts = await db.getAttemptSummaries(questions.map((q) => q.id))
+      return [profile, questions, targets, attempts] as const
+    },
     [],
   )
 
   if (error) return <ErrorState message={error} onRetry={reload} />
   if (loading || !data) return <TodaySkeleton />
 
-  const [profile, questions, targets] = data
+  const [profile, questions, targets, attempts] = data
   return (
     <>
       <Header profile={profile} />
-      {questions.length ? <QuestionSet questions={questions} goal={profile?.minutes_per_day ?? null} /> : <NoQuestions targets={targets} />}
+      {questions.length ? <QuestionSet questions={questions} attempts={attempts} goal={profile?.minutes_per_day ?? null} /> : <NoQuestions targets={targets} />}
     </>
   )
 }
@@ -52,7 +56,8 @@ function Header({ profile }: { profile: Profile | null }) {
   )
 }
 
-function QuestionSet({ questions, goal }: { questions: QuestionView[]; goal: number | null }) {
+function QuestionSet({ questions, attempts, goal }: { questions: QuestionView[]; attempts: readonly AttemptSummary[]; goal: number | null }) {
+  const done = questions.filter((q) => attempts.some((a) => a.question_id === q.id)).length
   const total = questions.reduce((s, q) => s + q.minutes, 0)
   const createdAt = questions[0].created_at
   const fresh = isToday(createdAt)
@@ -63,6 +68,9 @@ function QuestionSet({ questions, goal }: { questions: QuestionView[]; goal: num
           <h2 id="set-title" className="text-lg font-semibold">
             {fresh ? "Today's questions" : 'Your latest questions'}
           </h2>
+          <p className="text-sm text-muted">
+            {done === questions.length ? 'All answered. Nice work.' : `${done} of ${questions.length} answered`}
+          </p>
           {!fresh && <p className="text-sm text-muted">Written {formatDate(createdAt, { month: 'short', day: 'numeric' })}. A new set comes with your next update.</p>}
         </div>
         <MinutesMeter total={total} goal={goal} />
@@ -82,6 +90,7 @@ function QuestionSet({ questions, goal }: { questions: QuestionView[]; goal: num
                   <p className="font-semibold">{q.topic.name}</p>
                   <p className="mt-1 line-clamp-2 text-sm text-muted">{q.prompt}</p>
                   <QuestionMeta q={q} className="mt-4" />
+                  <AttemptBadge attempt={attempts.find((a) => a.question_id === q.id)} />
                 </div>
                 <ChevronRight aria-hidden className="mt-1 size-5 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
               </div>
@@ -90,6 +99,23 @@ function QuestionSet({ questions, goal }: { questions: QuestionView[]; goal: num
         ))}
       </ol>
     </section>
+  )
+}
+
+function AttemptBadge({ attempt }: { attempt?: AttemptSummary }) {
+  if (!attempt) return null
+  return (
+    <div className="mt-3">
+      {attempt.score != null ? (
+        <Badge tone="accent">
+          <CheckCircle2 aria-hidden className="size-3.5" /> Graded {attempt.score}/5
+        </Badge>
+      ) : (
+        <Badge tone="warn">
+          <CircleDashed aria-hidden className="size-3.5" /> Answered, waiting for a grade
+        </Badge>
+      )}
+    </div>
   )
 }
 

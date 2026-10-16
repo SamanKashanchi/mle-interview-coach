@@ -200,3 +200,38 @@ create index if not exists questions_user_idx on public.questions(user_id, creat
 alter table public.questions enable row level security;
 drop policy if exists "read own questions" on public.questions;
 create policy "read own questions" on public.questions for select to authenticated using (user_id = auth.uid());
+
+-- Answers and grades. See agents/grading/README.md.
+-- Users write their own answers; grades are written by the grader (bypasses RLS) and readable by the answer's owner.
+create table if not exists public.answers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  question_id uuid not null references public.questions(id) on delete cascade,
+  body text not null check (length(trim(body)) > 0),
+  seconds_spent int check (seconds_spent >= 0),
+  status text not null default 'pending' check (status in ('pending','graded')),
+  created_at timestamptz not null default now()
+);
+create index if not exists answers_user_idx on public.answers(user_id, created_at desc);
+create index if not exists answers_question_idx on public.answers(question_id);
+alter table public.answers enable row level security;
+drop policy if exists "read own answers" on public.answers;
+create policy "read own answers" on public.answers for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "add own answers" on public.answers;
+create policy "add own answers" on public.answers for insert to authenticated
+  with check (user_id = (select auth.uid()) and status = 'pending'
+    and exists (select 1 from public.questions q where q.id = question_id and q.user_id = (select auth.uid())));
+
+create table if not exists public.grades (
+  answer_id uuid primary key references public.answers(id) on delete cascade,
+  score numeric(2,1) not null check (score between 0 and 5),
+  rubric_scores jsonb not null, -- [{ "point": text, "verdict": "met" | "partial" | "missed", "note": text }]
+  strengths text[] not null default '{}',
+  improvements text[] not null default '{}',
+  model_answer text,
+  graded_at timestamptz not null default now()
+);
+alter table public.grades enable row level security;
+drop policy if exists "read own grades" on public.grades;
+create policy "read own grades" on public.grades for select to authenticated
+  using (exists (select 1 from public.answers a where a.id = answer_id and a.user_id = (select auth.uid())));

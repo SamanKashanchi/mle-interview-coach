@@ -3,7 +3,9 @@
 // second target that has not been researched yet.
 
 import type {
+  Answer,
   Company,
+  Grade,
   FocusTopic,
   Profile,
   ProfileRound,
@@ -311,3 +313,83 @@ function isoDaysFromNow(days: number) {
   d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
 }
+
+// One graded attempt at the SQL question, so the feedback view has something to show.
+export const answers: Answer[] = [
+  {
+    id: 'a1',
+    user_id: U,
+    question_id: 'q2',
+    body: `with first_purchase as (
+  select buyer_id, min(ts) as purchased_at
+  from show_events where event_type = 'purchase'
+  group by buyer_id
+),
+first_join as (
+  select buyer_id, min(ts) as joined_at
+  from show_events where event_type = 'join'
+  group by buyer_id
+)
+select date_trunc('week', b.first_seen_at) as cohort_week,
+       count(*) as new_buyers,
+       avg(case when p.purchased_at <= b.first_seen_at + interval '7 days' then 1 else 0 end) as converted_7d,
+       percentile_cont(0.5) within group (
+         order by extract(epoch from p.purchased_at - j.joined_at) / 3600
+       ) as median_hours_join_to_purchase
+from buyers b
+join first_purchase p on p.buyer_id = b.buyer_id
+join first_join j on j.buyer_id = b.buyer_id
+group by 1
+order by 1;`,
+    seconds_spent: 840,
+    status: 'graded',
+    created_at: batch,
+  },
+]
+
+export const grades: Grade[] = [
+  {
+    answer_id: 'a1',
+    score: 3,
+    rubric_scores: [
+      { point: 'Cohorts buyers by the week of first_seen_at', verdict: 'met', note: "date_trunc('week', b.first_seen_at) groups the cohorts correctly." },
+      { point: "Finds each buyer's first purchase and first join with MIN over the right event type", verdict: 'met', note: 'Two clean CTEs, each filtered to one event type.' },
+      { point: 'Keeps non-converting buyers in the denominator (left join, not inner)', verdict: 'missed', note: 'Inner joins drop every buyer who never purchased, so new_buyers and the conversion rate only count converters.' },
+      { point: 'Applies the 7-day window correctly relative to first_seen_at', verdict: 'partial', note: 'The window check is right, but the median ignores it and includes purchases after day 7.' },
+      { point: 'Computes the median with percentile_cont (or equivalent) only over converters', verdict: 'partial', note: 'percentile_cont is the right tool; it needs a filter so only 7-day converters count.' },
+      { point: 'Handles edge cases such as a purchase with no prior join, and uses readable CTEs', verdict: 'partial', note: 'Readable CTEs, but a purchase before any join gives negative hours and is not handled.' },
+    ],
+    strengths: ['Clear CTE structure that is easy to follow out loud.', 'Picked percentile_cont for the median without being prompted.'],
+    improvements: [
+      'Start from buyers and LEFT JOIN the event CTEs, so non-converters stay in the denominator.',
+      "Filter the median to converters within 7 days: percentile_cont(...) within group (...) filter (where p.purchased_at <= b.first_seen_at + interval '7 days').",
+      'Say out loud how you treat a purchase with no earlier join; interviewers listen for edge cases.',
+    ],
+    model_answer: `with first_purchase as (
+  select buyer_id, min(ts) as purchased_at
+  from show_events where event_type = 'purchase' group by buyer_id
+),
+first_join as (
+  select buyer_id, min(ts) as joined_at
+  from show_events where event_type = 'join' group by buyer_id
+),
+cohort as (
+  select b.buyer_id,
+         date_trunc('week', b.first_seen_at) as cohort_week,
+         p.purchased_at <= b.first_seen_at + interval '7 days' as converted,
+         extract(epoch from p.purchased_at - j.joined_at) / 3600 as hours_to_purchase
+  from buyers b
+  left join first_purchase p using (buyer_id)
+  left join first_join j using (buyer_id)
+)
+select cohort_week,
+       count(*) as new_buyers,
+       avg(coalesce(converted, false)::int) as converted_7d,
+       percentile_cont(0.5) within group (order by hours_to_purchase)
+         filter (where converted and hours_to_purchase >= 0) as median_hours_join_to_purchase
+from cohort
+group by cohort_week
+order by cohort_week;`,
+    graded_at: batch,
+  },
+]

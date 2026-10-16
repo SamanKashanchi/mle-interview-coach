@@ -10,13 +10,15 @@ companies test, and runs daily practice that closes the gap.
 2. **Research** (`agents/research/`): Claude builds one shared interview profile per company + role.
 3. **Plan** (`agents/blueprint/`): a per-user weight for each of 42 topics, from research × posting × resume.
 4. **Questions** (`agents/questions/`): a daily set sampled from the plan, each with a rubric.
+5. **Grading** (`agents/grading/`): you answer in the portal; Claude scores each rubric point and writes feedback
+   and a model answer.
 
-Steps 2 to 4 are run by Claude from the project chat. The portal reads their output and shows what's pending.
+Steps 2 to 5 are run by Claude from the project chat (say "grade" to grade pending answers). The portal reads their output and shows what's pending.
 
 ## The portal (`app/`)
 
 A Vite + React + TypeScript app styled with Tailwind. Pages: sign-in, a first-run setup wizard, then
-Today, Question, Plan, Targets (with each company's research) and Profile. All database access goes
+Today, Question (answer, then see your grade), Plan, Targets (with each company's research) and Profile. All database access goes
 through `app/src/lib/db.ts`.
 
 ### Run it locally (Windows PowerShell)

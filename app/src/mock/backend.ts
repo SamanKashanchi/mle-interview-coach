@@ -4,7 +4,7 @@
 
 import type { Backend } from '../lib/db'
 import { BATCH_WINDOW_MS } from '../lib/constants'
-import type { Company, Profile, Role, SessionUser, Target, TargetInput } from '../lib/types'
+import type { Answer, Company, Profile, Role, SessionUser, Target, TargetInput } from '../lib/types'
 import * as fx from './fixtures'
 
 interface State {
@@ -13,15 +13,16 @@ interface State {
   targets: Target[]
   companies: Company[]
   roles: Role[]
+  answers: Answer[]
 }
 
 const KEY = 'mock-state'
 
 function initial(scenario: string): State {
-  const base = { companies: fx.companies, roles: fx.roles }
+  const base = { companies: fx.companies, roles: fx.roles, answers: [] as Answer[] }
   if (scenario === 'signedout') return { ...base, user: null, profile: null, targets: [] }
   if (scenario === 'new') return { ...base, user: fx.MOCK_USER, profile: null, targets: [] }
-  return { ...base, user: fx.MOCK_USER, profile: fx.profile, targets: fx.targets }
+  return { ...base, user: fx.MOCK_USER, profile: fx.profile, targets: fx.targets, answers: fx.answers }
 }
 
 function load(): State {
@@ -33,7 +34,10 @@ function load(): State {
   }
   try {
     const raw = sessionStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as State
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<State>
+      return { ...initial('full'), ...saved, answers: saved.answers ?? [] }
+    }
   } catch {
     // Storage unavailable: fall through to the default scenario.
   }
@@ -209,6 +213,37 @@ export const mockBackend: Backend = {
           .sort((a, b) => b.weight - a.weight),
       }))
     return { profile, rounds, sources: fx.profileSources.filter((s) => s.profile_id === profile.id) }
+  },
+
+  async submitAnswer(questionId, body, secondsSpent) {
+    await wait()
+    const user = requireUser()
+    if (!body.trim()) throw new Error('Write an answer first.')
+    state.answers.push({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      question_id: questionId,
+      body,
+      seconds_spent: secondsSpent,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    })
+    commit()
+  },
+  async getAnswers(questionId) {
+    await wait()
+    return state.answers
+      .filter((a) => a.question_id === questionId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((a) => ({ ...a, grade: fx.grades.find((g) => g.answer_id === a.id) ?? null }))
+  },
+  async getAttemptSummaries(questionIds) {
+    const out = []
+    for (const id of questionIds) {
+      const latest = (await mockBackend.getAnswers(id))[0]
+      if (latest) out.push({ question_id: id, status: latest.status, score: latest.grade?.score ?? null })
+    }
+    return out
   },
 }
 

@@ -74,3 +74,11 @@ export function greeting(now = new Date()) {
 }
 
 export const pct = (w: number) => `${(w * 100).toFixed(w >= 0.1 ? 0 : 1)}%`
+
+/** A word for a 0-5 grade. */
+export function scoreLabel(score: number) {
+  if (score >= 4.5) return 'Interview-ready'
+  if (score >= 3.5) return 'Solid'
+  if (score >= 2) return 'Getting there'
+  return 'Needs work'
+}
