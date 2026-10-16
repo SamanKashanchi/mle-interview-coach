@@ -8,8 +8,9 @@ Output: one `focus_topics` row per user per topic (all 42 topics).
   over the research profiles matching the user's targets. Topics the research never mentions
   get a floor of 0.1 so they still come up occasionally.
 - `posting_factor`, `resume_factor` (0.5 to 1.5): one Claude call with no tools reads the
-  user's pasted postings and resume. Raise topics the posting names; lower topics the resume
-  shows the user already does a lot (never below 0.5). Each factor comes with a short reason.
+  user's pasted postings and resume. Raise topics the posting names. Lower topics the resume
+  shows the user already does a lot, and raise ones the target needs but the resume shows no
+  experience in. Each factor comes with a short reason.
 - `reason`: which research rounds and which posting/resume signals produced the weight.
 
 Recompute when targets, postings, the resume or research change. For now Claude runs it
