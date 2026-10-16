@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, ChevronRight, CircleDashed, Hourglass, Sparkles } from 'lucide-react'
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
-import { daysUntil, formatDate, greeting, isToday } from '../../lib/format'
+import { daysUntil, formatDate, greeting, isToday, plainPreview } from '../../lib/format'
 import type { AttemptSummary, Profile, QuestionView, TargetView } from '../../lib/types'
 import { Badge, EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
 import { QuestionMeta } from '../question/meta'
@@ -88,7 +88,7 @@ function QuestionSet({ questions, attempts, goal }: { questions: QuestionView[];
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{q.topic.name}</p>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">{q.prompt}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted">{plainPreview(q.prompt)}</p>
                   <QuestionMeta q={q} className="mt-4" />
                   <AttemptBadge attempt={attempts.find((a) => a.question_id === q.id)} />
                 </div>

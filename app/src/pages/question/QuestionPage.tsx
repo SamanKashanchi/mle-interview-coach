@@ -6,6 +6,7 @@ import { CATEGORY_LABEL } from '../../lib/format'
 import type { QuestionView } from '../../lib/types'
 import { Card, EmptyState, ErrorState, Skeleton } from '../../components/ui'
 import { QuestionMeta } from './meta'
+import { Markdown } from '../../components/Markdown'
 import { AnswerPanel } from './AnswerPanel'
 
 export default function QuestionPage() {
@@ -43,7 +44,7 @@ export default function QuestionPage() {
       </header>
 
       <Card className="mt-8">
-        <p className="whitespace-pre-wrap text-[17px] leading-relaxed">{q.prompt}</p>
+        <Markdown className="text-[17px] leading-relaxed">{q.prompt}</Markdown>
       </Card>
 
       <AnswerPanel key={q.id} q={q} />

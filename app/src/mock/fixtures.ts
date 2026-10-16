@@ -274,8 +274,69 @@ export const questions: Question[] = [
     format: 'ml_coding',
     difficulty: 3,
     minutes: 15,
-    prompt:
-      "Tables: buyers(buyer_id, first_seen_at) and show_events(buyer_id, show_id, event_type in ('join','purchase'), ts). Write SQL that returns, for each week of first_seen_at: the number of new buyers, the share who made a first purchase within 7 days of first_seen_at, and among those who converted, the median hours from their first show join to their first purchase.",
+    prompt: `Whatnot wants to know how quickly new buyers start buying. For each **weekly cohort** of new buyers (the week of their \`first_seen_at\`), return:
+
+- \`new_buyers\`: how many buyers were first seen that week.
+- \`conversion_rate_7d\`: the share of them whose first purchase came within 7 days of \`first_seen_at\`.
+- \`median_hours_join_to_purchase\`: among those 7-day converters, the median hours from their first show join to their first purchase.
+
+### Tables
+
+**buyers**
+
+| Column | Type |
+|---|---|
+| buyer_id | int (primary key) |
+| first_seen_at | timestamp |
+
+**show_events**
+
+| Column | Type |
+|---|---|
+| buyer_id | int |
+| show_id | int |
+| event_type | text: \`'join'\` or \`'purchase'\` |
+| ts | timestamp |
+
+### Example
+
+**buyers**
+
+| buyer_id | first_seen_at |
+|---|---|
+| 1 | 2026-09-07 10:00 |
+| 2 | 2026-09-08 09:00 |
+| 3 | 2026-09-09 18:00 |
+| 4 | 2026-09-15 12:00 |
+| 5 | 2026-09-16 08:00 |
+
+**show_events**
+
+| buyer_id | show_id | event_type | ts |
+|---|---|---|---|
+| 1 | 101 | join | 2026-09-07 10:30 |
+| 1 | 101 | purchase | 2026-09-07 12:30 |
+| 2 | 102 | join | 2026-09-08 09:15 |
+| 2 | 105 | purchase | 2026-09-20 20:00 |
+| 3 | 103 | join | 2026-09-10 20:00 |
+| 3 | 104 | join | 2026-09-11 08:00 |
+| 3 | 104 | purchase | 2026-09-11 14:00 |
+| 4 | 106 | join | 2026-09-15 13:00 |
+| 4 | 106 | purchase | 2026-09-15 19:00 |
+
+**Expected output**
+
+| cohort_week | new_buyers | conversion_rate_7d | median_hours_join_to_purchase |
+|---|---|---|---|
+| 2026-09-07 | 3 | 0.67 | 10.0 |
+| 2026-09-14 | 2 | 0.50 | 6.0 |
+
+### Explanation
+
+- **Week of Sep 7:** buyers 1, 2 and 3. Buyer 1 bought 2 hours after joining. Buyer 2 bought on Sep 20, more than 7 days after first being seen, so does not count. Buyer 3's first join was Sep 10 20:00 and first purchase Sep 11 14:00, which is 18 hours. Rate = 2/3; median of 2 and 18 = 10.0.
+- **Week of Sep 14:** buyers 4 and 5. Buyer 4 bought 6 hours after joining. Buyer 5 has no events but still counts as a new buyer. Rate = 1/2; median = 6.0.
+
+Write it in PostgreSQL. Weeks start on Monday (\`date_trunc('week', ...)\`).`,
     rubric: [
       'Cohorts buyers by the week of first_seen_at',
       "Finds each buyer's first purchase and first join with MIN over the right event type",
