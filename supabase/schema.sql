@@ -166,3 +166,19 @@ drop policy if exists "read profile_rounds" on public.profile_rounds;
 create policy "read profile_rounds" on public.profile_rounds for select to authenticated using (true);
 drop policy if exists "read round_topics" on public.round_topics;
 create policy "read round_topics" on public.round_topics for select to authenticated using (true);
+
+-- Blueprint: per-user topic weights. See agents/blueprint/README.md.
+create table if not exists public.focus_topics (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  topic_id int not null references public.topics(id),
+  research_score real not null default 0,
+  posting_factor real not null default 1 check (posting_factor between 0.5 and 1.5),
+  resume_factor real not null default 1 check (resume_factor between 0.5 and 1.5),
+  weight real not null default 0,
+  reason text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, topic_id)
+);
+alter table public.focus_topics enable row level security;
+drop policy if exists "read own focus_topics" on public.focus_topics;
+create policy "read own focus_topics" on public.focus_topics for select to authenticated using (user_id = auth.uid());
