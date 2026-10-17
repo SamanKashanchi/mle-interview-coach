@@ -3,7 +3,6 @@
 // nothing filled in yet) or ?mock=signedout.
 
 import type { Backend } from '../lib/db'
-import { BATCH_WINDOW_MS } from '../lib/constants'
 import type { Answer, Company, Profile, Role, SessionUser, Target, TargetInput } from '../lib/types'
 import * as fx from './fixtures'
 
@@ -185,13 +184,37 @@ export const mockBackend: Backend = {
     if (!own(state.targets)) return []
     return [...fx.focusTopics].sort((a, b) => b.weight - a.weight).map((f) => ({ ...f, topic: topicById(f.topic_id) }))
   },
-  async getLatestQuestions() {
+  async getHistory() {
     await wait()
     if (!own(state.targets)) return []
-    const newest = Math.max(...fx.questions.map((q) => Date.parse(q.created_at)))
-    return fx.questions
-      .filter((q) => Date.parse(q.created_at) >= newest - BATCH_WINDOW_MS)
-      .map((q) => ({ ...q, topic: topicById(q.topic_id), company: companyName(q.company_id) }))
+    return fx.questions.map((q) => {
+      const attempts = state.answers.filter((a) => a.question_id === q.id).sort((a, b) => a.created_at.localeCompare(b.created_at))
+      const latest = attempts[attempts.length - 1]
+      const graded = [...attempts].reverse().find((a) => fx.grades.some((g) => g.answer_id === a.id))
+      const grade = graded ? fx.grades.find((g) => g.answer_id === graded.id)! : null
+      return {
+        id: q.id,
+        topic_id: q.topic_id,
+        company_id: q.company_id,
+        company: companyName(q.company_id),
+        format: q.format,
+        difficulty: q.difficulty,
+        minutes: q.minutes,
+        prompt: q.prompt,
+        set_date: q.set_date,
+        reason: q.reason,
+        created_at: q.created_at,
+        answer_id: latest?.id ?? null,
+        answer_status: latest?.status ?? null,
+        answered_at: latest?.created_at ?? null,
+        seconds_spent: latest?.seconds_spent ?? null,
+        score: grade?.score ?? null,
+        graded_at: grade?.graded_at ?? null,
+        attempts: attempts.length,
+        answered_ats: attempts.map((a) => a.created_at),
+        topic: topicById(q.topic_id),
+      }
+    })
   },
   async getQuestion(id) {
     await wait()
@@ -236,14 +259,6 @@ export const mockBackend: Backend = {
       .filter((a) => a.question_id === questionId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((a) => ({ ...a, grade: fx.grades.find((g) => g.answer_id === a.id) ?? null }))
-  },
-  async getAttemptSummaries(questionIds) {
-    const out = []
-    for (const id of questionIds) {
-      const latest = (await mockBackend.getAnswers(id))[0]
-      if (latest) out.push({ question_id: id, status: latest.status, score: latest.grade?.score ?? null })
-    }
-    return out
   },
 }
 

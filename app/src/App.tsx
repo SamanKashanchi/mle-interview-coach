@@ -7,6 +7,8 @@ import Onboarding from './pages/onboarding/Onboarding'
 import Today from './pages/today/Today'
 import QuestionPage from './pages/question/QuestionPage'
 import Plan from './pages/plan/Plan'
+import History from './pages/history/History'
+import DayPage from './pages/history/DayPage'
 import Targets from './pages/targets/Targets'
 import Research from './pages/research/Research'
 import ProfilePage from './pages/profile/ProfilePage'
@@ -28,6 +30,8 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route index element={<Today />} />
                 <Route path="questions/:id" element={<QuestionPage />} />
+                <Route path="history" element={<History />} />
+                <Route path="history/:date" element={<DayPage />} />
                 <Route path="plan" element={<Plan />} />
                 <Route path="targets" element={<Targets />} />
                 <Route path="targets/:id" element={<Research />} />

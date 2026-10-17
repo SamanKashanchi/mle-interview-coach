@@ -235,3 +235,52 @@ alter table public.grades enable row level security;
 drop policy if exists "read own grades" on public.grades;
 create policy "read own grades" on public.grades for select to authenticated
   using (exists (select 1 from public.answers a where a.id = answer_id and a.user_id = (select auth.uid())));
+
+-- History, habit loop and gap-aware questions --------------------------------------------
+
+-- The day a question belongs to. Existing rows are all from 2026-10-16; new rows get
+-- today's date unless the generator sets the owner's local date (it should).
+alter table questions add column if not exists set_date date not null default date '2026-10-16';
+alter table questions alter column set_date set default current_date;
+-- Why the generator picked this question, shown on the question page.
+alter table questions add column if not exists reason text;
+create index if not exists questions_user_set_date on questions (user_id, set_date);
+
+-- One row per question with its latest attempt and latest grade. security_invoker keeps RLS.
+create or replace view question_history with (security_invoker = on) as
+select q.id, q.user_id, q.topic_id, q.company_id, c.name as company, q.format, q.difficulty,
+       q.minutes, q.prompt, q.set_date, q.reason, q.created_at,
+       la.id as answer_id, la.status as answer_status, la.created_at as answered_at, la.seconds_spent,
+       lg.score, lg.graded_at,
+       coalesce(ac.attempts, 0)::int as attempts,
+       coalesce(ac.answered_ats, '{}') as answered_ats
+from questions q
+left join companies c on c.id = q.company_id
+left join lateral (
+  select a.id, a.status, a.created_at, a.seconds_spent from answers a
+  where a.question_id = q.id order by a.created_at desc limit 1
+) la on true
+left join lateral (
+  select g.score, g.graded_at from answers a join grades g on g.answer_id = a.id
+  where a.question_id = q.id order by a.created_at desc limit 1
+) lg on true
+left join lateral (
+  select count(*) as attempts, array_agg(a.created_at order by a.created_at) as answered_ats
+  from answers a where a.question_id = q.id
+) ac on true;
+
+-- Per user and topic: how often it was asked, answered and graded, and a Bayesian mastery
+-- (prior 2.5/5 worth two answers). The question generator reads this.
+create or replace view topic_progress with (security_invoker = on) as
+select f.user_id, f.topic_id, t.name as topic, f.weight as focus_weight,
+       count(h.id)::int as times_asked,
+       count(h.answer_id)::int as times_answered,
+       count(h.score)::int as times_graded,
+       round(avg(h.score), 2) as avg_score,
+       (array_agg(h.score order by h.graded_at desc) filter (where h.score is not null))[1] as last_score,
+       max(h.set_date) as last_asked,
+       round((coalesce(sum(h.score), 0) + 2.5 * 2) / (count(h.score) + 2) / 5, 3) as mastery
+from focus_topics f
+join topics t on t.id = f.topic_id
+left join question_history h on h.user_id = f.user_id and h.topic_id = f.topic_id
+group by f.user_id, f.topic_id, t.name, f.weight;

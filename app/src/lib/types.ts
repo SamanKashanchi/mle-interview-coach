@@ -133,6 +133,8 @@ export interface Question {
   minutes: number
   prompt: string
   rubric: string[]
+  set_date: string // yyyy-mm-dd, the day this question belongs to
+  reason: string | null // why the generator picked it
   created_at: string
 }
 
@@ -206,9 +208,29 @@ export interface AnswerView extends Answer {
   grade: Grade | null
 }
 
-/** The latest attempt at a question, for status badges. */
-export interface AttemptSummary {
-  question_id: string
-  status: Answer['status']
+/** One row of the question_history view: a question with its latest attempt and grade. */
+export interface HistoryItem {
+  id: string
+  topic_id: number
+  company_id: string | null
+  company: string | null
+  format: QuestionFormat
+  difficulty: number
+  minutes: number
+  prompt: string
+  set_date: string
+  reason: string | null
+  created_at: string
+  answer_id: string | null
+  answer_status: Answer['status'] | null
+  answered_at: string | null
+  seconds_spent: number | null
   score: number | null
+  graded_at: string | null
+  attempts: number
+  answered_ats: string[]
+}
+
+export interface HistoryItemView extends HistoryItem {
+  topic: Topic
 }

@@ -18,7 +18,7 @@ export function Difficulty({ value }: { value: number }) {
 }
 
 /** Format, company, difficulty and minutes in one wrapping row. */
-export function QuestionMeta({ q, className }: { q: QuestionView; className?: string }) {
+export function QuestionMeta({ q, className }: { q: Pick<QuestionView, 'format' | 'company' | 'minutes' | 'difficulty'>; className?: string }) {
   return (
     <div className={cx('flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted', className)}>
       <Badge tone="accent">{FORMAT_LABEL[q.format]}</Badge>

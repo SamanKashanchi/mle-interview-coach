@@ -7,11 +7,15 @@ import { CATEGORIES, CATEGORY_LABEL, formatDate, pct } from '../../lib/format'
 import type { Category, FocusTopicView } from '../../lib/types'
 import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, SkeletonList } from '../../components/ui'
 import { cx } from '../../lib/cx'
+import { fmtScore, LEVEL_LABEL, LEVELS, topicStats, type Level, type TopicStat } from '../../lib/progress'
+import { LevelPill } from '../../components/habit'
 
 const TOP = 10
 
 export default function Plan() {
-  const { data, error, loading, reload } = useAsync(() => db.getFocusTopics(), [])
+  const { data: loaded, error, loading, reload } = useAsync(() => Promise.all([db.getFocusTopics(), db.getHistory()]), [])
+  const data = loaded?.[0]
+  const stats = useMemo(() => new Map(loaded ? topicStats(loaded[1], loaded[0]).map((t) => [t.topic_id, t]) : []), [loaded])
   const [category, setCategory] = useState<Category | 'all'>('all')
   const [showAll, setShowAll] = useState(false)
 
@@ -44,6 +48,7 @@ export default function Plan() {
   return (
     <>
       {header}
+      <SkillGrid stats={[...stats.values()]} />
       <div role="group" aria-label="Filter by category" className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1">
         <FilterChip active={category === 'all'} onClick={() => setCategory('all')}>All</FilterChip>
         {present.map((c) => (
@@ -55,7 +60,7 @@ export default function Plan() {
 
       <ol className="space-y-2">
         {visible.map((f) => (
-          <TopicRow key={f.topic_id} f={f} max={max} />
+          <TopicRow key={f.topic_id} f={f} max={max} stat={stats.get(f.topic_id)} />
         ))}
       </ol>
 
@@ -87,7 +92,27 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
   )
 }
 
-function TopicRow({ f, max }: { f: FocusTopicView & { rank: number }; max: number }) {
+/** How many topics sit at each mastery level, weighted by how much of the plan they carry. */
+function SkillGrid({ stats }: { stats: TopicStat[] }) {
+  const by = (l: Level) => stats.filter((t) => t.level === l)
+  return (
+    <section aria-label="Mastery by level" className="mb-6 grid grid-cols-5 gap-1.5">
+      {LEVELS.map((l, i) => {
+        const list = by(l)
+        const share = list.reduce((s, t) => s + t.weight, 0)
+        return (
+          <div key={l} className={cx('rounded-xl border px-2 py-3 text-center', i === 0 ? 'border-dashed border-line' : 'border-line bg-surface')}>
+            <p className="text-xl font-semibold tabular-nums">{list.length}</p>
+            <p className="mt-0.5 text-[11px] font-medium leading-tight text-muted">{LEVEL_LABEL[l]}</p>
+            <p className="mt-1 text-[11px] text-faint">{pct(share)} of plan</p>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+function TopicRow({ f, max, stat }: { f: FocusTopicView & { rank: number }; max: number; stat?: TopicStat }) {
   const parts = parseReason(f.reason)
   return (
     <li className="rounded-2xl border border-line bg-surface px-5 py-4">
@@ -108,6 +133,16 @@ function TopicRow({ f, max }: { f: FocusTopicView & { rank: number }; max: numbe
           >
             <div className="h-full rounded-full bg-accent" style={{ width: `${(f.weight / max) * 100}%` }} />
           </div>
+          {stat && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              <LevelPill level={stat.level} />
+              {stat.avg != null && (
+                <span>
+                  avg {fmtScore(stat.avg)} over {stat.scores.length} graded
+                </span>
+              )}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge>{CATEGORY_LABEL[f.topic.category]}</Badge>
             {f.posting_factor !== 1 && <Badge tone={f.posting_factor > 1 ? 'accent' : 'neutral'}>Posting ×{f.posting_factor}</Badge>}

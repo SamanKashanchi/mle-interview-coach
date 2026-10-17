@@ -1,12 +1,16 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CalendarCheck, Crosshair, ListOrdered, UserRound } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { CalendarCheck, Crosshair, History, ListOrdered, UserRound } from 'lucide-react'
 import { Logo } from '../components/Logo'
 import { cx } from '../lib/cx'
-import { isMock } from '../lib/db'
+import { db, isMock } from '../lib/db'
+import { useAsync } from '../lib/useAsync'
+import { activityByDay, localDay, streak } from '../lib/progress'
+import { StreakFlame } from '../components/habit'
 import { useAuth } from '../lib/useAuth'
 
 const NAV = [
   { to: '/', label: 'Today', icon: CalendarCheck, end: true },
+  { to: '/history', label: 'History', icon: History },
   { to: '/plan', label: 'Plan', icon: ListOrdered },
   { to: '/targets', label: 'Targets', icon: Crosshair },
   { to: '/profile', label: 'Profile', icon: UserRound },
@@ -17,6 +21,13 @@ export default function Layout() {
   const { pathname } = useLocation()
   // Question pages count as part of Today for the nav highlight.
   const isActive = (to: string, active: boolean) => active || (to === '/' && pathname.startsWith('/questions'))
+  // Refreshed on every navigation so an answer submitted a moment ago lights the flame.
+  const { data: st } = useAsync(async () => streak(new Set(activityByDay(await db.getHistory()).keys()), localDay()), [pathname])
+  const flame = st && (
+    <Link to="/history" className="rounded-lg px-1 text-lg" aria-label={`${st.current}-day streak`}>
+      <StreakFlame days={st.current} active={st.answeredToday} />
+    </Link>
+  )
   return (
     <div className="min-h-dvh md:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
@@ -25,7 +36,10 @@ export default function Layout() {
 
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line px-4 py-6 md:flex">
-        <Logo className="px-3" />
+        <div className="flex items-center justify-between gap-2 pr-2">
+          <Logo className="px-3" />
+          {flame}
+        </div>
         <nav aria-label="Main" className="mt-10 space-y-1">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
@@ -53,7 +67,10 @@ export default function Layout() {
       {/* Mobile top bar */}
       <header className="flex items-center justify-between border-b border-line px-4 py-3 md:hidden">
         <Logo />
-        {isMock && <span className="text-xs font-medium text-warn-text">Mock data</span>}
+        <div className="flex items-center gap-3">
+          {isMock && <span className="text-xs font-medium text-warn-text">Mock data</span>}
+          {flame}
+        </div>
       </header>
 
       <main id="main" className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 md:pb-16 md:pt-12">
@@ -64,7 +81,7 @@ export default function Layout() {
 
       {/* Mobile bottom tabs */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink

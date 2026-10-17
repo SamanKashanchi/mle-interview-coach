@@ -3,13 +3,13 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mockBackend } from '../mock/backend'
-import { BATCH_WINDOW_MS } from './constants'
 import type {
   AnswerView,
-  AttemptSummary,
   FocusTopic,
   Grade,
   FocusTopicView,
+  HistoryItem,
+  HistoryItemView,
   Profile,
   ProfileInput,
   ProfileRound,
@@ -46,15 +46,14 @@ export interface Backend {
 
   listTopics(): Promise<Topic[]>
   getFocusTopics(): Promise<FocusTopicView[]>
-  getLatestQuestions(): Promise<QuestionView[]>
+  /** Every question the user has been given, oldest first, with its latest attempt and grade. */
+  getHistory(): Promise<HistoryItemView[]>
   getQuestion(id: string): Promise<QuestionView | null>
   getResearch(companyId: string, roleId: string): Promise<ResearchDetail | null>
 
   submitAnswer(questionId: string, body: string, secondsSpent: number | null): Promise<void>
   /** Every attempt at one question, newest first, each with its grade if it has one. */
   getAnswers(questionId: string): Promise<AnswerView[]>
-  /** The latest attempt per question, for the given questions. */
-  getAttemptSummaries(questionIds: string[]): Promise<AttemptSummary[]>
 }
 
 export const isMock = import.meta.env.VITE_MOCK === '1'
@@ -90,7 +89,7 @@ const toUser = (u: { id: string; email?: string } | null | undefined): SessionUs
 let topicCache: Promise<Topic[]> | null = null
 
 const PROFILE_COLS = 'user_id, name, level, ready_by, minutes_per_day, resume_path, resume_name, updated_at'
-const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, created_at, companies(name)'
+const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, created_at, companies(name)'
 
 type Named = { name: string } | null
 type QuestionRow = Question & { companies: Named }
@@ -215,23 +214,18 @@ export const realBackend: Backend = {
     ])
     return (check(rows) as FocusTopic[]).map((f) => ({ ...f, topic: topics.find((t) => t.id === f.topic_id)! }))
   },
-  async getLatestQuestions() {
+  async getHistory() {
     const id = await uid()
-    const newest = check(
-      await sb().from('questions').select('created_at').eq('user_id', id).order('created_at', { ascending: false }).limit(1),
-    ) as { created_at: string }[]
-    if (!newest.length) return []
-    const since = new Date(new Date(newest[0].created_at).getTime() - BATCH_WINDOW_MS).toISOString()
-    const rows = check(
-      await sb()
-        .from('questions')
-        .select(QUESTION_COLS)
-        .eq('user_id', id)
-        .gte('created_at', since)
-        .order('created_at')
-        .order('id'),
-    ) as unknown as QuestionRow[]
-    return withTopics(rows)
+    const [rows, topics] = await Promise.all([
+      sb().from('question_history').select('*').eq('user_id', id).order('created_at').order('id'),
+      realBackend.listTopics(),
+    ])
+    return (check(rows) as HistoryItem[]).map((h) => ({
+      ...h,
+      score: h.score == null ? null : Number(h.score),
+      answered_ats: h.answered_ats ?? [],
+      topic: topics.find((t) => t.id === h.topic_id)!,
+    }))
   },
   async getQuestion(questionId) {
     const row = check(await sb().from('questions').select(QUESTION_COLS).eq('id', questionId).maybeSingle()) as unknown as QuestionRow | null
@@ -283,23 +277,6 @@ export const realBackend: Backend = {
     ) as unknown as (Omit<AnswerView, 'grade'> & { grades: Grade | Grade[] | null })[]
     // grades is one-to-one (answer_id is its primary key), but normalize either shape.
     return rows.map(({ grades, ...a }) => ({ ...a, grade: (Array.isArray(grades) ? grades[0] : grades) ?? null }))
-  },
-  async getAttemptSummaries(questionIds) {
-    if (!questionIds.length) return []
-    const rows = check(
-      await sb()
-        .from('answers')
-        .select('question_id, status, created_at, grades(score)')
-        .in('question_id', questionIds)
-        .order('created_at', { ascending: false }),
-    ) as unknown as { question_id: string; status: AttemptSummary['status']; grades: { score: number } | { score: number }[] | null }[]
-    const latest = new Map<string, AttemptSummary>()
-    for (const r of rows) {
-      if (latest.has(r.question_id)) continue
-      const g = Array.isArray(r.grades) ? r.grades[0] : r.grades
-      latest.set(r.question_id, { question_id: r.question_id, status: r.status, score: g ? Number(g.score) : null })
-    }
-    return [...latest.values()]
   },
 }
 
