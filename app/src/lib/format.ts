@@ -86,5 +86,5 @@ export function scoreLabel(score: number) {
 /** The first plain-text paragraph of a Markdown prompt, for one-line previews. */
 export function plainPreview(md: string) {
   const para = md.split(/\n\s*\n/).find((p) => !/^\s*(#|\||```|[-*] )/.test(p)) ?? md
-  return para.replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim()
+  return para.replace(/[*`#>]|(?<!\w)_|_(?!\w)/g, '').replace(/\s+/g, ' ').trim()
 }

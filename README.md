@@ -9,7 +9,8 @@ companies test, and runs daily practice that closes the gap.
    and minutes per day in the portal.
 2. **Research** (`agents/research/`): Claude builds one shared interview profile per company + role.
 3. **Plan** (`agents/blueprint/`): a per-user weight for each of 42 topics, from research × posting × resume.
-4. **Questions** (`agents/questions/`): a daily set sampled from the plan, each with a rubric.
+4. **Questions** (`agents/questions/`): a daily set aimed at your gaps: priority = plan weight × how weak you are ×
+   recency, with spaced reviews of low-scoring topics, difficulty per topic, and a reason for each pick.
 5. **Grading** (`agents/grading/`): you answer in the portal; Claude scores each rubric point and writes feedback
    and a model answer.
 
@@ -18,8 +19,9 @@ Steps 2 to 5 are run by Claude from the project chat (say "grade" to grade pendi
 ## The portal (`app/`)
 
 A Vite + React + TypeScript app styled with Tailwind. Pages: sign-in, a first-run setup wizard, then
-Today, Question (answer, then see your grade), Plan, Targets (with each company's research) and Profile. All database access goes
-through `app/src/lib/db.ts`.
+Today (daily goal ring, streak, readiness), Question (answer, then see your grade), History (calendar,
+weak spots, milestones, every past day), Plan (with a mastery level per topic), Targets (with each company's research) and Profile. All database access goes
+through `app/src/lib/db.ts`; streaks, mastery, readiness and reviews are computed in `app/src/lib/progress.ts`.
 
 ### Run it locally (Windows PowerShell)
 

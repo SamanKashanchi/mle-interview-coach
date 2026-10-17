@@ -17,6 +17,7 @@ import type {
   Target,
   Topic,
 } from '../lib/types'
+import { addDays, localDay } from '../lib/progress'
 
 export const MOCK_USER = { id: '00000000-0000-4000-8000-000000000001', email: 'sam@example.com' }
 const U = MOCK_USER.id
@@ -243,9 +244,13 @@ export const focusTopics: FocusTopic[] = F.map(([topic_id, research_score, posti
   updated_at: '2026-10-16T21:05:36Z',
 }))
 
-const batch = new Date().toISOString()
+// Today's two sets. Set 1 is the real pipeline output; set 2 came later in the day.
+const today = localDay()
+const startOfToday = new Date(`${today}T00:01:00`).getTime()
+const batch = new Date(Math.max(startOfToday, Date.now() - 3 * 3600_000)).toISOString()
+const batch2 = new Date(Math.max(startOfToday + 60_000, Date.now() - 20 * 60_000)).toISOString()
 
-export const questions: Question[] = [
+const todaysSet: Question[] = [
   {
     id: 'q1',
     user_id: U,
@@ -264,6 +269,8 @@ export const questions: Question[] = [
       'Proposes concrete monitors: feature drift (e.g. PSI), prediction distribution, calibration, online lift against a persistent holdout, with alert thresholds',
       'Gives a retraining or exploration strategy so future data stays unbiased',
     ],
+    set_date: today,
+    reason: 'Review: Monitoring and drift went 1.5, 2.5, then 4/5. This check-in keeps it from slipping.',
     created_at: batch,
   },
   {
@@ -345,6 +352,8 @@ Write it in PostgreSQL. Weeks start on Monday (\`date_trunc('week', ...)\`).`,
       'Computes the median with percentile_cont (or equivalent) only over converters',
       'Handles edge cases such as a purchase with no prior join, and uses readable CTEs',
     ],
+    set_date: today,
+    reason: "Data manipulation is a light focus topic you're strong in; one quick SQL keeps it warm.",
     created_at: batch,
   },
   {
@@ -365,9 +374,130 @@ Write it in PostgreSQL. Weeks start on Monday (\`date_trunc('week', ...)\`).`,
       'Makes clear which decisions were yours and what trade-offs you made',
       'Gives an honest, specific reflection on what to change',
     ],
+    set_date: today,
+    reason: "Past projects deep dive is a top-3 focus topic for Whatnot's hiring manager round, and you last scored 3/5.",
     created_at: batch,
   },
 ]
+
+// Set 2 of today: a spaced review of Recommender systems, and a coding question answered but not graded.
+const secondSet: Question[] = [
+  {
+    id: 'q4',
+    user_id: U,
+    topic_id: 30,
+    company_id: 'c-whatnot',
+    format: 'ml_system_design',
+    difficulty: 3,
+    minutes: 25,
+    prompt:
+      'Design the **Live now for you** row on the Whatnot home screen: about 10 livestreams that are live right now, ranked per buyer. Streams start and end constantly, many sellers and buyers are brand new, and a stream that suddenly gets hot should rise within minutes. Cover the objective, candidate generation, ranking features, cold start, freshness and how you would measure it.',
+    rubric: [
+      'Ties the objective to watch time and orders, with labels from logged impressions',
+      'Several candidate sources filtered to streams that are live now',
+      'Real-time stream features (viewers, bid velocity) next to buyer and seller history',
+      'Cold start through content features and an exploration slot',
+      'Offline ranking metrics, then an A/B test with guardrails',
+    ],
+    set_date: today,
+    reason: 'Review: Recommender systems scored 2.5, then 3.5. It is due again today, from a new scenario.',
+    created_at: batch2,
+  },
+  {
+    id: 'q5',
+    user_id: U,
+    topic_id: 1,
+    company_id: 'c-whatnot',
+    format: 'coding',
+    difficulty: 3,
+    minutes: 20,
+    prompt:
+      "Given unsorted orders `(day, seller_id, buyer_id)` and a window `k`, return for every seller how many distinct buyers placed two orders with them at most `k` days apart.",
+    rubric: [
+      'Sorts by day or otherwise compares neighbouring orders per pair',
+      'Hash map keyed by (seller, buyer) with the last order day',
+      'Counts each buyer once and keeps sellers with 0',
+      'States O(n log n) time and O(n) space',
+    ],
+    set_date: today,
+    reason: 'Arrays and hashing is your third-heaviest focus topic and you went 3, 2, then 4. Difficulty stays at 3.',
+    created_at: batch2,
+  },
+]
+
+// Twelve earlier days, so History, the calendar, streaks, mastery and milestones have something
+// real to show. Days -12 to -6 build a 7-day streak (earning a freeze), day -5 was skipped and
+// the freeze covers it, and Monitoring and drift climbs from 1.5 to 4.
+type Past = [dayOffset: number, topicId: number, format: Question['format'], difficulty: number, minutes: number, score: number | 'pending' | null, prompt: string]
+
+const PAST: Past[] = [
+  [-12, 14, 'ml_coding', 3, 15, 3.5, 'Given a table of orders, return each seller\'s 7-day rolling GMV for the last 30 days.'],
+  [-12, 19, 'ml_concept', 3, 15, 4, 'When would you pick PR-AUC over ROC-AUC for a fraud model, and why?'],
+  [-12, 41, 'behavioral', 3, 15, 4, 'Tell me about a time you owned a model end to end, from data to production.'],
+  [-11, 37, 'ml_system_design', 3, 25, 1.5, 'Your churn model\'s precision dropped 20% in a week. How do you find out why?'],
+  [-11, 1, 'coding', 3, 20, 3, 'Group listing titles that are anagrams of each other after removing spaces and case.'],
+  [-10, 40, 'behavioral', 3, 15, 2, 'Walk me through your attribution pipeline. What would break first at 10x the data?'],
+  [-10, 23, 'ml_concept', 3, 15, 4, 'An A/B test shows +2% orders but -1% retention. How do you decide?'],
+  [-9, 30, 'ml_system_design', 3, 25, 2.5, 'Design "Shows you might like" for buyers who have never purchased.'],
+  [-9, 7, 'coding', 3, 20, 3, 'Find every seller reachable from a buyer through "also bought from" links within 3 hops.'],
+  [-8, 37, 'ml_system_design', 2, 20, 2.5, 'Which three monitors would you add first to a live ranking model, and what thresholds?'],
+  [-8, 41, 'behavioral', 3, 15, 3.5, 'Describe a decision you made with incomplete data and how it turned out.'],
+  [-7, 19, 'ml_concept', 3, 15, 4.5, 'Your offline NDCG went up but online CTR fell. Give three reasons.'],
+  [-7, 1, 'coding', 3, 20, 2, 'Return the length of the longest run of days on which a buyer placed at least one order.'],
+  [-6, 40, 'behavioral', 2, 15, 3.5, 'Explain your lead-matching optimizer to a non-technical VP in two minutes.'],
+  [-6, 36, 'ml_system_design', 3, 25, 3, 'Serve a ranking model at 5k QPS with a 50 ms budget. Where does the time go?'],
+  [-5, 1, 'coding', 3, 20, null, 'Given bids with timestamps, return the top bidder in every 60-second window.'],
+  [-5, 34, 'ml_system_design', 3, 25, null, 'Design a feature pipeline that keeps "viewers in the last 5 minutes" fresh for ranking.'],
+  [-4, 30, 'ml_system_design', 3, 25, 3.5, 'Two-tower retrieval for live shows: what goes in each tower and how do you train it?'],
+  [-4, 23, 'ml_concept', 3, 15, 4.5, 'How do you size an experiment when the metric is orders per buyer per week?'],
+  [-3, 37, 'ml_system_design', 3, 25, 4, 'A feature started arriving 6 hours late. Which monitors catch it, and what do they show?'],
+  [-3, 36, 'ml_system_design', 3, 25, 3.5, 'When would you move a model from batch scoring to online inference?'],
+  [-2, 1, 'coding', 3, 20, 4, 'Return the k sellers with the most distinct buyers this week.'],
+  [-2, 40, 'behavioral', 3, 15, 3, 'What was the hardest trade-off in your lead-matching project, and would you make it again?'],
+  [-1, 19, 'ml_concept', 3, 15, 5, 'Your model is well ranked but badly calibrated. When does that matter, and how do you fix it?'],
+  [-1, 42, 'behavioral', 3, 15, 4, 'Tell me about a time you disagreed with a PM about what to ship.'],
+  [-1, 34, 'ml_system_design', 3, 25, 'pending', 'Design point-in-time correct training data for a model that uses streaming features.'],
+]
+
+const VERDICTS = (score: number): ('met' | 'partial' | 'missed')[] =>
+  score >= 4.5 ? ['met', 'met', 'met'] : score >= 3.5 ? ['met', 'met', 'partial'] : score >= 2.5 ? ['met', 'partial', 'missed'] : score >= 1.5 ? ['partial', 'missed', 'missed'] : ['missed', 'missed', 'missed']
+
+const pastQuestions: Question[] = []
+const pastAnswers: Answer[] = []
+const pastGrades: Grade[] = []
+
+PAST.forEach(([offset, topic_id, format, difficulty, minutes, score, prompt], i) => {
+  const set_date = addDays(today, offset)
+  const at = (h: number, m = 0) => new Date(`${set_date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).toISOString()
+  const id = `p${i + 1}`
+  const rubric = ['Frames the problem and states assumptions', 'Covers the core technique and its trade-offs', 'Handles edge cases and says how to measure success']
+  const reason = `${topics.find((t) => t.id === topic_id)!.name} carries ${(focusTopics.find((f) => f.topic_id === topic_id)!.weight * 100).toFixed(1)}% of your plan; picked by priority (weight × need × recency).`
+  pastQuestions.push({ id, user_id: U, topic_id, company_id: 'c-whatnot', format, difficulty, minutes, prompt, rubric, set_date, reason, created_at: at(8) })
+  if (score === null) return
+  const answerId = `pa${i + 1}`
+  pastAnswers.push({
+    id: answerId,
+    user_id: U,
+    question_id: id,
+    body: 'My approach: start with a simple baseline, then walk through the main trade-offs and how I would measure it.',
+    seconds_spent: Math.round(minutes * 60 * 0.85),
+    status: score === 'pending' ? 'pending' : 'graded',
+    created_at: at(19, 10 + (i % 40)),
+  })
+  if (score === 'pending') return
+  const verdicts = VERDICTS(score)
+  pastGrades.push({
+    answer_id: answerId,
+    score,
+    rubric_scores: rubric.map((point, k) => ({ point, verdict: verdicts[k], note: verdicts[k] === 'met' ? 'Clear and specific.' : 'Mentioned briefly; needed a concrete example.' })),
+    strengths: ['Started from a simple baseline before adding complexity.'],
+    improvements: ['Name the metric you would watch and the threshold that triggers action.'],
+    model_answer: 'Start with the simplest version that works, name the metric that proves it, then cover the two failure modes an interviewer will probe.',
+    graded_at: at(21),
+  })
+})
+
+export const questions: Question[] = [...pastQuestions, ...todaysSet, ...secondSet]
 
 function isoDaysFromNow(days: number) {
   const d = new Date()
@@ -376,7 +506,7 @@ function isoDaysFromNow(days: number) {
 }
 
 // One graded attempt at the SQL question, so the feedback view has something to show.
-export const answers: Answer[] = [
+const todaysAnswers: Answer[] = [
   {
     id: 'a1',
     user_id: U,
@@ -408,7 +538,7 @@ order by 1;`,
   },
 ]
 
-export const grades: Grade[] = [
+const todaysGrades: Grade[] = [
   {
     answer_id: 'a1',
     score: 3,
@@ -454,3 +584,19 @@ order by cohort_week;`,
     graded_at: batch,
   },
 ]
+
+export const answers: Answer[] = [
+  ...pastAnswers,
+  ...todaysAnswers,
+  {
+    id: 'a5',
+    user_id: U,
+    question_id: 'q5',
+    body: 'Sort orders by day, then keep last[(seller, buyer)] = day. When the gap to the previous order is <= k, add the buyer to a set for that seller.',
+    seconds_spent: 900,
+    status: 'pending',
+    created_at: batch2,
+  },
+]
+
+export const grades: Grade[] = [...pastGrades, ...todaysGrades]

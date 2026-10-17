@@ -23,7 +23,17 @@ const PAGES = [
   { name: '08-research', scenario: 'full', path: '/targets/t-whatnot', ready: 'text=The loop, round by round', act: (p) => p.getByRole('button', { name: /Recommender systems/ }).click() },
   { name: '09-research-pending', scenario: 'full', path: '/targets/t-databricks', ready: 'text=Not researched yet' },
   { name: '10-profile', scenario: 'full', path: '/profile', ready: 'text=Your details' },
+  { name: '11-history', scenario: 'full', path: '/history', ready: 'text=Practice calendar' },
+  { name: '11b-history-filtered', scenario: 'full', path: '/history', ready: 'text=Practice calendar', act: (p) => p.getByLabel('Result').selectOption('needs') },
+  { name: '12-history-day', scenario: 'full', path: `/history/${daysAgo(3)}`, ready: 'text=answered ·' },
+  { name: '13-question-from-history', scenario: 'full', path: '/questions/p20', ready: 'text=Why this question' },
 ]
+
+function daysAgo(n) {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 const VIEWPORTS = [
   { name: 'desktop', viewport: { width: 1280, height: 860 } },
