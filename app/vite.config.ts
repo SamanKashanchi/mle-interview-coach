@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'mock' ? './' : '/',
   // Escape non-ASCII characters in the bundle so any static host serves it intact.
   esbuild: { charset: 'ascii' },
+  // PGlite ships its own WebAssembly and data files; pre-bundling would lose them.
+  optimizeDeps: { exclude: ['@electric-sql/pglite'] },
+  worker: { format: 'es' },
   server: { port: 8000, strictPort: true },
   preview: { port: 8000, strictPort: true },
   build: {

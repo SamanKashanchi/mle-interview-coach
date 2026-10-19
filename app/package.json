@@ -4,6 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "pyodide": "node scripts/copy-pyodide.mjs",
+    "predev": "npm run pyodide",
+    "premock": "npm run pyodide",
+    "prebuild": "npm run pyodide",
+    "prebuild:mock": "npm run pyodide",
     "dev": "vite",
     "mock": "vite --mode mock",
     "build": "tsc -b && vite build",
@@ -13,8 +18,12 @@
     "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.3.15",
+    "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.58.0",
+    "monaco-editor": "^0.52.2",
+    "pyodide": "^0.29.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",

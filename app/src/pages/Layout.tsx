@@ -73,8 +73,8 @@ export default function Layout() {
         </div>
       </header>
 
-      <main id="main" className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 md:pb-16 md:pt-12">
-        <div className="mx-auto max-w-3xl">
+      <main id="main" className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 md:pb-16 md:pt-12 lg:has-[[data-wide]]:px-6 lg:has-[[data-wide]]:pb-6 lg:has-[[data-wide]]:pt-5">
+        <div className="mx-auto max-w-3xl has-[[data-wide]]:max-w-[110rem]">
           <Outlet />
         </div>
       </main>

@@ -135,7 +135,64 @@ export interface Question {
   rubric: string[]
   set_date: string // yyyy-mm-dd, the day this question belongs to
   reason: string | null // why the generator picked it
+  code: CodeSpec | null // runnable starter code and tests, for coding questions
   created_at: string
+}
+
+// ---- Runnable coding questions (questions.code, answers.run_result) ----
+
+export type CodeLanguage = 'python' | 'sql'
+
+export interface SqlTable {
+  columns: string[]
+  rows: (string | number | null)[][]
+}
+
+/** One test case. Python cases call `entry(*args)`; SQL cases run `setup` after the schema. */
+export interface CodeTest {
+  name: string
+  hidden: boolean
+  args?: unknown[]
+  setup?: string
+  expected: unknown // Python: any JSON value. SQL: a SqlTable.
+  ordered?: boolean // Compare list or row order. Default: Python yes, SQL no.
+}
+
+export interface CodeSpec {
+  language: CodeLanguage
+  starter: string
+  entry?: string // Python: the function to call
+  params?: string[] // Python: argument names, for showing inputs
+  schema?: string // SQL: create table statements
+  tests: CodeTest[]
+}
+
+/** A value shown in the console: Python repr text or a SQL result table. */
+export type Shown = { text: string } | { table: SqlTable }
+
+export interface CaseResult {
+  name: string
+  hidden: boolean
+  status: 'pass' | 'fail' | 'error'
+  inputs: { label: string; value: Shown }[]
+  output: Shown | null
+  expected: Shown
+  stdout: string
+  error: string | null
+  ms: number
+}
+
+export type RunStatus = 'accepted' | 'wrong_answer' | 'runtime_error' | 'compile_error' | 'time_limit'
+
+export interface RunResult {
+  kind: 'run' | 'submit'
+  status: RunStatus
+  passed: number
+  total: number
+  error: string | null // compile error or time limit, when no case could run
+  cases: CaseResult[]
+  ms: number
+  ran_at: string
 }
 
 // ---- Shapes the pages work with (rows joined with the names they point at) ----
@@ -191,6 +248,8 @@ export interface Answer {
   body: string
   seconds_spent: number | null
   status: 'pending' | 'graded'
+  language: CodeLanguage | null // set for code answers
+  run_result: RunResult | null // tests at submit time, for code answers
   created_at: string
 }
 

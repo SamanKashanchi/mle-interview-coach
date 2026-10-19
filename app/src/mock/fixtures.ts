@@ -2,6 +2,7 @@
 // research, focus plan and questions are copies of real pipeline output; Databricks is a
 // second target that has not been researched yet.
 
+import { COHORT_SQL, REPEAT_BUYERS, REPEAT_BUYERS_PROMPT } from './codeSpecs'
 import type {
   Answer,
   Company,
@@ -271,6 +272,7 @@ const todaysSet: Question[] = [
     ],
     set_date: today,
     reason: 'Review: Monitoring and drift went 1.5, 2.5, then 4/5. This check-in keeps it from slipping.',
+    code: null,
     created_at: batch,
   },
   {
@@ -354,6 +356,7 @@ Write it in PostgreSQL. Weeks start on Monday (\`date_trunc('week', ...)\`).`,
     ],
     set_date: today,
     reason: "Data manipulation is a light focus topic you're strong in; one quick SQL keeps it warm.",
+    code: null,
     created_at: batch,
   },
   {
@@ -376,6 +379,7 @@ Write it in PostgreSQL. Weeks start on Monday (\`date_trunc('week', ...)\`).`,
     ],
     set_date: today,
     reason: "Past projects deep dive is a top-3 focus topic for Whatnot's hiring manager round, and you last scored 3/5.",
+    code: null,
     created_at: batch,
   },
 ]
@@ -401,6 +405,7 @@ const secondSet: Question[] = [
     ],
     set_date: today,
     reason: 'Review: Recommender systems scored 2.5, then 3.5. It is due again today, from a new scenario.',
+    code: null,
     created_at: batch2,
   },
   {
@@ -421,6 +426,7 @@ const secondSet: Question[] = [
     ],
     set_date: today,
     reason: 'Arrays and hashing is your third-heaviest focus topic and you went 3, 2, then 4. Difficulty stays at 3.',
+    code: null,
     created_at: batch2,
   },
 ]
@@ -472,7 +478,7 @@ PAST.forEach(([offset, topic_id, format, difficulty, minutes, score, prompt], i)
   const id = `p${i + 1}`
   const rubric = ['Frames the problem and states assumptions', 'Covers the core technique and its trade-offs', 'Handles edge cases and says how to measure success']
   const reason = `${topics.find((t) => t.id === topic_id)!.name} carries ${(focusTopics.find((f) => f.topic_id === topic_id)!.weight * 100).toFixed(1)}% of your plan; picked by priority (weight × need × recency).`
-  pastQuestions.push({ id, user_id: U, topic_id, company_id: 'c-whatnot', format, difficulty, minutes, prompt, rubric, set_date, reason, created_at: at(8) })
+  pastQuestions.push({ id, user_id: U, topic_id, company_id: 'c-whatnot', format, difficulty, minutes, prompt, rubric, set_date, reason, code: null, created_at: at(8) })
   if (score === null) return
   const answerId = `pa${i + 1}`
   pastAnswers.push({
@@ -482,6 +488,8 @@ PAST.forEach(([offset, topic_id, format, difficulty, minutes, score, prompt], i)
     body: 'My approach: start with a simple baseline, then walk through the main trade-offs and how I would measure it.',
     seconds_spent: Math.round(minutes * 60 * 0.85),
     status: score === 'pending' ? 'pending' : 'graded',
+    language: null,
+    run_result: null,
     created_at: at(19, 10 + (i % 40)),
   })
   if (score === 'pending') return
@@ -497,7 +505,10 @@ PAST.forEach(([offset, topic_id, format, difficulty, minutes, score, prompt], i)
   })
 })
 
-export const questions: Question[] = [...pastQuestions, ...todaysSet, ...secondSet]
+// The two coding questions are runnable in the editor.
+export const questions: Question[] = [...pastQuestions, ...todaysSet, ...secondSet].map((q) =>
+  q.id === 'q2' ? { ...q, code: COHORT_SQL } : q.id === 'q5' ? { ...q, prompt: REPEAT_BUYERS_PROMPT, code: REPEAT_BUYERS } : q,
+)
 
 function isoDaysFromNow(days: number) {
   const d = new Date()
@@ -534,6 +545,8 @@ group by 1
 order by 1;`,
     seconds_spent: 840,
     status: 'graded',
+    language: 'sql',
+    run_result: null,
     created_at: batch,
   },
 ]
@@ -592,9 +605,20 @@ export const answers: Answer[] = [
     id: 'a5',
     user_id: U,
     question_id: 'q5',
-    body: 'Sort orders by day, then keep last[(seller, buyer)] = day. When the gap to the previous order is <= k, add the buyer to a set for that seller.',
+    body: `def repeat_buyers(orders, k):
+    # O(n log n) time for the sort, O(n) space.
+    out = {s: 0 for _, s, _ in orders}
+    last = {}
+    for day, s, b in sorted(orders):
+        if (s, b) in last and day - last[(s, b)] <= k:
+            out[s] += 1
+        last[(s, b)] = day
+    return out
+`,
     seconds_spent: 900,
     status: 'pending',
+    language: 'python',
+    run_result: null,
     created_at: batch2,
   },
 ]
