@@ -425,7 +425,7 @@ const secondSet: Question[] = [
   },
 ]
 
-// Twelve earlier days, so History, the calendar, streaks, mastery and milestones have something
+// Twelve earlier days, so History, the calendar, streaks and mastery have something
 // real to show. Days -12 to -6 build a 7-day streak (earning a freeze), day -5 was skipped and
 // the freeze covers it, and Monitoring and drift climbs from 1.5 to 4.
 type Past = [dayOffset: number, topicId: number, format: Question['format'], difficulty: number, minutes: number, score: number | 'pending' | null, prompt: string]

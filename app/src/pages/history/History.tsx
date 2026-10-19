@@ -1,13 +1,12 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Award, BookOpenCheck, ChevronDown, CircleDashed, Lock, Search, Snowflake, TrendingDown, TrendingUp } from 'lucide-react'
+import { BookOpenCheck, ChevronDown, CircleDashed, Search, Snowflake, TrendingDown, TrendingUp } from 'lucide-react'
 import { useProgress, type Progress } from '../../lib/useProgress'
 import { FORMAT_LABEL, formatDate, plainPreview, scoreLabel } from '../../lib/format'
-import { addDays, averageBetween, bestDay, fmtScore, groupByDay, type DaySummary } from '../../lib/progress'
+import { addDays, averageBetween, fmtScore, groupByDay, type DaySummary } from '../../lib/progress'
 import type { HistoryItemView, QuestionFormat } from '../../lib/types'
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton, SkeletonList } from '../../components/ui'
 import { ActivityCalendar, DailyScores, Freezes, LevelPill, ScorePill, Stat, StreakFlame } from '../../components/habit'
-import { MilestoneToasts } from '../../components/QuestionCard'
 import { Difficulty } from '../question/meta'
 import { cx } from '../../lib/cx'
 
@@ -66,10 +65,8 @@ export default function History() {
           })}
         />
       </Card>
-      <Milestones p={data} />
       <WeakSpots p={data} />
       <Days p={data} />
-      <MilestoneToasts p={data} />
     </>
   )
 }
@@ -109,42 +106,6 @@ function ProgressTiles({ p }: { p: Progress }) {
         }
       />
     </div>
-  )
-}
-
-function Milestones({ p }: { p: Progress }) {
-  const best = bestDay(p.activity)
-  return (
-    <section aria-labelledby="ms" className="mt-8">
-      <h2 id="ms" className="mb-3 font-semibold">Milestones</h2>
-      <ul className="flex gap-2 overflow-x-auto pb-1">
-        {best && (
-          <li className="w-40 shrink-0 rounded-2xl border border-line bg-surface p-3">
-            <Award aria-hidden className="size-5 text-flame" />
-            <p className="mt-2 text-sm font-semibold">Best day</p>
-            <p className="text-xs text-muted">
-              {fmtScore(best.avg!)} avg on {formatDate(best.day, { month: 'short', day: 'numeric' })}
-            </p>
-          </li>
-        )}
-        {p.milestones.map((m) => {
-          const body = (
-            <>
-              {m.earned ? <Award aria-hidden className="size-5 text-accent-text" /> : <Lock aria-hidden className="size-5 text-faint" />}
-              <p className="mt-2 text-sm font-semibold">{m.title}</p>
-              <p className="text-xs text-muted">{m.detail}</p>
-            </>
-          )
-          const cls = cx('block h-full w-40 rounded-2xl border p-3', m.earned ? 'border-accent/40 bg-surface' : 'border-dashed border-line opacity-60')
-          return (
-            <li key={m.id} className="relative shrink-0">
-              {m.href ? <Link to={m.href} className={cx(cls, 'hover:border-accent')}>{body}</Link> : <div className={cls}>{body}</div>}
-              <span className="sr-only">{m.earned ? 'Earned' : 'Locked'}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
   )
 }
 

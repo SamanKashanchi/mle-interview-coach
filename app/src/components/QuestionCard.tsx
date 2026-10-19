@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, CircleDashed, RotateCcw, Trophy } from 'lucide-react'
+import { ChevronRight, CircleDashed, RotateCcw } from 'lucide-react'
 import { plainPreview } from '../lib/format'
-import { addDays, fmtScore, type TopicStat } from '../lib/progress'
-import type { Progress } from '../lib/useProgress'
+import { fmtScore, type TopicStat } from '../lib/progress'
 import type { HistoryItemView } from '../lib/types'
 import { cx } from '../lib/cx'
 import { Badge } from './ui'
-import { LevelPill, OnceToasts } from './habit'
+import { LevelPill } from './habit'
 import { QuestionMeta } from '../pages/question/meta'
 
 /** A question in a list: topic, level, preview, meta, and its grade or status. */
@@ -57,11 +56,3 @@ export function QuestionCard({ h, n, stat, review }: { h: HistoryItemView; n?: n
     </Link>
   )
 }
-
-
-/** A toast for each milestone earned in the last few days, once per device. */
-export function MilestoneToasts({ p }: { p: Progress }) {
-  const recent = p.milestones.filter((m) => m.earned && m.on && m.on >= addDays(p.today, -2))
-  return <OnceToasts items={recent.map((m) => ({ id: `milestone:${m.id}`, icon: <Trophy className="size-5" />, message: <><span className="font-semibold">Milestone: {m.title}.</span> {m.detail}</> }))} />
-}
-

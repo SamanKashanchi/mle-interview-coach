@@ -8,7 +8,7 @@ import { addDays, averageBetween, dueReviews, fmtScore, isReview, practiceMinute
 import type { HistoryItemView, Profile, TargetView } from '../../lib/types'
 import { Card, EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
 import { GoalRing, StreakFlame } from '../../components/habit'
-import { MilestoneToasts, QuestionCard } from '../../components/QuestionCard'
+import { QuestionCard } from '../../components/QuestionCard'
 
 export default function Today() {
   const { data, error, loading, reload } = useProgress()
@@ -33,7 +33,6 @@ export default function Today() {
       ) : (
         <NoQuestions />
       )}
-      <MilestoneToasts p={p} />
     </>
   )
 }
