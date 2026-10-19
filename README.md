@@ -50,6 +50,13 @@ With the preview running, `npm run screenshots` (in a second terminal) clicks th
 and phone widths, in light and dark, fails on page errors or sideways scrolling, and saves images to
 `app/screenshots/`.
 
+## Hosting (Vercel)
+
+The Vercel project points at this repo with **Root Directory `app`**. `app/vercel.json` sets the Vite build and
+sends every path to `index.html` so links like `/history` work on reload. `app/.env.production` holds the public
+Supabase URL and publishable key, so no Vercel environment variables are needed. The deployed URL must be listed
+under Supabase → Authentication → URL Configuration → Redirect URLs, or magic links won't sign you in.
+
 ## Database setup (already done for the live project)
 
 1. In the Supabase dashboard, open SQL Editor and run `supabase/schema.sql`, then `supabase/seed_topics.sql`.
