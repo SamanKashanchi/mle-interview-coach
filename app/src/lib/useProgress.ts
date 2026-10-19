@@ -4,7 +4,6 @@ import { useAsync } from './useAsync'
 import {
   activityByDay,
   localDay,
-  milestones,
   projectReadiness,
   readinessSeries,
   streak,
@@ -31,7 +30,6 @@ export function buildProgress(items: HistoryItemView[], focus: FocusTopicView[],
     series,
     readiness: series[series.length - 1].value,
     projected: projectReadiness(items, series, profile?.ready_by ?? null),
-    milestones: milestones(items, st, stats),
   }
 }
 

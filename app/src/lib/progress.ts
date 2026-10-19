@@ -1,9 +1,8 @@
-// Everything the habit loop shows (streak, goal ring, mastery, readiness, reviews, milestones)
+// Everything the habit loop shows (streak, goal ring, mastery, readiness, reviews)
 // is computed here from question history. Pure functions, so mock and real data behave the same.
 // The question generator uses the same formulas (agents/questions/README.md).
 
-import { formatDate } from './format'
-import type { FocusTopicView, HistoryItemView, QuestionFormat } from './types'
+import type { FocusTopicView, HistoryItemView } from './types'
 
 /** A local calendar day, yyyy-mm-dd. */
 export type Day = string
@@ -187,13 +186,11 @@ export interface Streak {
   freezes: number
   frozen: Set<Day>
   answeredToday: boolean
-  /** Days on which the streak reached 7 and 30, for milestones. */
-  reached: Partial<Record<7 | 30, Day>>
 }
 
 /** Duolingo-style: a day counts with one answer, every 7 days earns a freeze (bank 2). */
 export function streak(activeDays: Set<Day>, today: Day): Streak {
-  const out: Streak = { current: 0, longest: 0, freezes: 0, frozen: new Set(), answeredToday: activeDays.has(today), reached: {} }
+  const out: Streak = { current: 0, longest: 0, freezes: 0, frozen: new Set(), answeredToday: activeDays.has(today) }
   const sorted = [...activeDays].sort()
   if (!sorted.length) return out
   for (let d = sorted[0]; d <= today; d = addDays(d, 1)) {
@@ -201,7 +198,6 @@ export function streak(activeDays: Set<Day>, today: Day): Streak {
       out.current++
       out.longest = Math.max(out.longest, out.current)
       if (out.current % 7 === 0) out.freezes = Math.min(2, out.freezes + 1)
-      for (const n of [7, 30] as const) if (out.current === n && !out.reached[n]) out.reached[n] = d
     } else if (d === today) {
       // Today isn't over yet.
     } else if (out.freezes > 0) {
@@ -288,84 +284,6 @@ export function setsOf(items: HistoryItemView[]) {
     sets.set(key, [...(sets.get(key) ?? []), h])
   }
   return [...sets.values()]
-}
-
-// ---- Milestones ----
-
-export interface Milestone {
-  id: string
-  title: string
-  detail: string
-  earned: boolean
-  /** Local day it was earned, for the one-time toast. */
-  on?: Day
-  href?: string
-}
-
-const ALL_FORMATS: QuestionFormat[] = ['coding', 'ml_coding', 'ml_concept', 'ml_system_design', 'system_design', 'behavioral']
-
-export function milestones(items: HistoryItemView[], st: Streak, stats: TopicStat[]): Milestone[] {
-  const g = graded(items)
-  const five = g.find((h) => h.score === 5)
-
-  // The biggest climb on any topic: a later grade at least 2 points above an earlier low.
-  let comeback: { name: string; from: number; to: number; item: HistoryItemView } | null = null
-  for (const t of stats) {
-    const mine = g.filter((h) => h.topic_id === t.topic_id)
-    for (let j = 1; j < mine.length; j++) {
-      const low = Math.min(...mine.slice(0, j).map((h) => h.score!))
-      const gain = mine[j].score! - low
-      if (gain >= 2 && (!comeback || gain > comeback.to - comeback.from)) comeback = { name: t.name, from: low, to: mine[j].score!, item: mine[j] }
-    }
-  }
-
-  const formats = new Set(items.filter((h) => h.answer_id).map((h) => h.format))
-  const lastFormat = items.filter((h) => h.answered_at).sort((a, b) => a.answered_at!.localeCompare(b.answered_at!)).find((_, i, arr) =>
-    new Set(arr.slice(0, i + 1).map((h) => h.format)).size === ALL_FORMATS.length,
-  )
-  const ready = stats.find((t) => t.level === 'ready')
-
-  return [
-    {
-      id: 'first-five',
-      title: 'First 5/5',
-      detail: five ? `${five.topic.name}, ${formatDate(five.set_date, { month: 'short', day: 'numeric' })}` : 'Score a perfect answer',
-      earned: !!five,
-      on: five ? localDay(five.graded_at!) : undefined,
-      href: five ? `/questions/${five.id}` : undefined,
-    },
-    {
-      id: 'comeback',
-      title: 'Comeback',
-      detail: comeback ? `${comeback.name}: ${fmtScore(comeback.from)} → ${fmtScore(comeback.to)}` : 'Raise a topic by 2 points',
-      earned: !!comeback,
-      on: comeback ? localDay(comeback.item.graded_at!) : undefined,
-      href: comeback ? `/questions/${comeback.item.id}` : undefined,
-    },
-    { id: 'streak-7', title: '7-day streak', detail: st.reached[7] ? 'A full week' : `${Math.min(st.longest, 7)} of 7 days`, earned: !!st.reached[7], on: st.reached[7] },
-    { id: 'streak-30', title: '30-day streak', detail: st.reached[30] ? 'A full month' : `${Math.min(st.longest, 30)} of 30 days`, earned: !!st.reached[30], on: st.reached[30] },
-    {
-      id: 'all-formats',
-      title: 'Every format',
-      detail: `${formats.size} of ${ALL_FORMATS.length} formats answered`,
-      earned: formats.size === ALL_FORMATS.length,
-      on: lastFormat ? localDay(lastFormat.answered_at!) : undefined,
-    },
-    {
-      id: 'topic-ready',
-      title: 'Interview-ready',
-      detail: ready ? ready.name : 'Get one topic to Interview-ready',
-      earned: !!ready,
-      on: ready?.lastItem?.graded_at ? localDay(ready.lastItem.graded_at) : undefined,
-    },
-  ]
-}
-
-/** Best single day by average grade, counting days with at least 2 graded answers. */
-export function bestDay(activity: Map<Day, DayActivity>) {
-  let best: DayActivity | null = null
-  for (const a of activity.values()) if (a.scores.length >= 2 && (!best || a.avg! > best.avg!)) best = a
-  return best
 }
 
 /** Average of graded answers given between two days, inclusive. */
