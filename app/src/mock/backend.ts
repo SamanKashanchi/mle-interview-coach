@@ -238,7 +238,7 @@ export const mockBackend: Backend = {
     return { profile, rounds, sources: fx.profileSources.filter((s) => s.profile_id === profile.id) }
   },
 
-  async submitAnswer(questionId, body, secondsSpent) {
+  async submitAnswer(questionId, body, secondsSpent, code) {
     await wait()
     const user = requireUser()
     if (!body.trim()) throw new Error('Write an answer first.')
@@ -249,6 +249,8 @@ export const mockBackend: Backend = {
       body,
       seconds_spent: secondsSpent,
       status: 'pending',
+      language: code?.language ?? null,
+      run_result: code?.run_result ?? null,
       created_at: new Date().toISOString(),
     })
     commit()

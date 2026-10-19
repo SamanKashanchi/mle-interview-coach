@@ -16,7 +16,7 @@ const PAGES = [
   { name: '03-onboarding-targets', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you', act: onboardingToTargets },
   { name: '04-today', scenario: 'full', path: '/', ready: "text=Today's questions" },
   { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Submit for grading', act: (p) => p.getByLabel('Your answer').fill('First I would check whether the holdout still exists and is randomized...') },
-  { name: '05b-question-graded', scenario: 'full', path: '/questions/q2', ready: 'text=Do next time', act: (p) => p.click('text=Model answer') },
+  { name: '05b-question-graded', scenario: 'full', path: '/questions/q2', ready: '.monaco-editor', act: async (p) => { await p.click('role=tab[name=/Submissions/]'); await p.click('text=Model answer') } },
   { name: '05c-question-pending', scenario: 'full', path: '/questions/q3', ready: 'text=Submit for grading', act: submitAnswer },
   { name: '06-plan', scenario: 'full', path: '/plan', ready: 'text=Model evaluation and metrics' },
   { name: '07-targets', scenario: 'full', path: '/targets', ready: 'text=Research ready' },
@@ -27,6 +27,8 @@ const PAGES = [
   { name: '11b-history-filtered', scenario: 'full', path: '/history', ready: 'text=Practice calendar', act: (p) => p.getByLabel('Result').selectOption('needs') },
   { name: '12-history-day', scenario: 'full', path: `/history/${daysAgo(3)}`, ready: 'text=answered ·' },
   { name: '13-question-from-history', scenario: 'full', path: '/questions/p20', ready: 'text=Why this question' },
+  { name: '14-code-python-run', scenario: 'full', path: '/questions/q5', ready: '.monaco-editor', act: runCode },
+  { name: '15-code-sql-testcase', scenario: 'full', path: '/questions/q2', ready: '.monaco-editor' },
 ]
 
 function daysAgo(n) {
@@ -44,6 +46,11 @@ async function submitAnswer(page) {
   await page.getByLabel('Your answer').fill('Situation: our lead routing sent good leads to busy designers...')
   await page.click('text=Submit for grading')
   await page.waitForSelector('text=Waiting for a grade')
+}
+
+async function runCode(page) {
+  await page.click('button:has-text("Run")')
+  await page.waitForSelector('text=/examples passed/', { timeout: 60000 })
 }
 
 async function onboardingToTargets(page) {

@@ -284,3 +284,12 @@ from focus_topics f
 join topics t on t.id = f.topic_id
 left join question_history h on h.user_id = f.user_id and h.topic_id = f.topic_id
 group by f.user_id, f.topic_id, t.name, f.weight;
+
+-- Code editor ---------------------------------------------------------------------------
+
+-- Runnable spec for coding questions: {language, starter, entry, params, schema, tests[]}.
+-- See agents/questions/README.md.
+alter table public.questions add column if not exists code jsonb;
+-- Code answers: the language and the test results from the in-browser runner at submit time.
+alter table public.answers add column if not exists language text check (language in ('python','sql'));
+alter table public.answers add column if not exists run_result jsonb;

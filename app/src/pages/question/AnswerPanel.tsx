@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
+import { clock, useElapsed } from '../../lib/useElapsed'
 import { Check, ChevronDown, CircleDashed, Clock, Minus, RotateCcw, Send, X } from 'lucide-react'
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
@@ -159,22 +160,9 @@ function Composer({
   )
 }
 
-/** Seconds since the component mounted, ticking once a second. */
-function useElapsed() {
-  const start = useRef(Date.now())
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return Math.floor((now - start.current) / 1000)
-}
-
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-
 // ---- After submitting ----
 
-function Pending() {
+export function Pending() {
   return (
     <Card className="mt-4">
       <div className="flex gap-4">
@@ -199,7 +187,7 @@ const VERDICT: Record<Verdict, { label: string; icon: typeof Check; className: s
   missed: { label: 'Missed', icon: X, className: 'bg-danger-soft text-danger' },
 }
 
-function Feedback({ grade, code }: { grade: Grade; code: boolean }) {
+export function Feedback({ grade, code }: { grade: Grade; code: boolean }) {
   const score = Number(grade.score)
   const counts = grade.rubric_scores.reduce((c, r) => ({ ...c, [r.verdict]: (c[r.verdict] ?? 0) + 1 }), {} as Partial<Record<Verdict, number>>)
   return (
@@ -290,7 +278,7 @@ function answerMeta(a: AnswerView) {
 
 // ---- Shared bits ----
 
-function Details({ summary, meta, bare, children }: { summary: string; meta?: string; bare?: boolean; children: React.ReactNode }) {
+export function Details({ summary, meta, bare, children }: { summary: string; meta?: string; bare?: boolean; children: React.ReactNode }) {
   return (
     <details className={cx('group', !bare && 'mt-4 rounded-2xl border border-line bg-surface')}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 font-medium sm:px-6 [&::-webkit-details-marker]:hidden">
@@ -305,7 +293,7 @@ function Details({ summary, meta, bare, children }: { summary: string; meta?: st
   )
 }
 
-function Rubric({ items }: { items: string[] }) {
+export function Rubric({ items }: { items: string[] }) {
   const [open, setOpen] = useState(false)
   const id = useId()
   return (

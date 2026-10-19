@@ -4,6 +4,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mockBackend } from '../mock/backend'
 import type {
+  Answer,
   AnswerView,
   FocusTopic,
   Grade,
@@ -51,7 +52,7 @@ export interface Backend {
   getQuestion(id: string): Promise<QuestionView | null>
   getResearch(companyId: string, roleId: string): Promise<ResearchDetail | null>
 
-  submitAnswer(questionId: string, body: string, secondsSpent: number | null): Promise<void>
+  submitAnswer(questionId: string, body: string, secondsSpent: number | null, code?: Pick<Answer, 'language' | 'run_result'>): Promise<void>
   /** Every attempt at one question, newest first, each with its grade if it has one. */
   getAnswers(questionId: string): Promise<AnswerView[]>
 }
@@ -89,7 +90,7 @@ const toUser = (u: { id: string; email?: string } | null | undefined): SessionUs
 let topicCache: Promise<Topic[]> | null = null
 
 const PROFILE_COLS = 'user_id, name, level, ready_by, minutes_per_day, resume_path, resume_name, updated_at'
-const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, created_at, companies(name)'
+const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, code, created_at, companies(name)'
 
 type Named = { name: string } | null
 type QuestionRow = Question & { companies: Named }
@@ -263,15 +264,15 @@ export const realBackend: Backend = {
     }
   },
 
-  async submitAnswer(questionId, body, secondsSpent) {
+  async submitAnswer(questionId, body, secondsSpent, code) {
     const id = await uid()
-    check(await sb().from('answers').insert({ user_id: id, question_id: questionId, body, seconds_spent: secondsSpent }))
+    check(await sb().from('answers').insert({ user_id: id, question_id: questionId, body, seconds_spent: secondsSpent, ...code }))
   },
   async getAnswers(questionId) {
     const rows = check(
       await sb()
         .from('answers')
-        .select('id, user_id, question_id, body, seconds_spent, status, created_at, grades(*)')
+        .select('id, user_id, question_id, body, seconds_spent, status, language, run_result, created_at, grades(*)')
         .eq('question_id', questionId)
         .order('created_at', { ascending: false }),
     ) as unknown as (Omit<AnswerView, 'grade'> & { grades: Grade | Grade[] | null })[]

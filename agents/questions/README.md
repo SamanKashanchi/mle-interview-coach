@@ -92,8 +92,8 @@ One Claude call per question, no tools. Inputs:
 
 The new question tests exactly those gaps, from a new scenario. Don't re-ask the same scenario.
 
-Output: `prompt`, `rubric` (4-6 checkable points a strong answer covers), `minutes`, and a
-`reason`.
+Output: `prompt`, `rubric` (4-6 checkable points a strong answer covers), `minutes`, a
+`reason`, and `code` for coding questions (below).
 
 `prompt` is Markdown (the portal renders it). Coding and SQL questions are LeetCode-style:
 - a short problem statement saying exactly what to return;
@@ -105,6 +105,45 @@ Output: `prompt`, `rubric` (4-6 checkable points a strong answer covers), `minut
 
 Check the expected output by running the reference solution on the example rows before inserting.
 A read-only `with ... as (values ...)` query works for SQL.
+
+**Runnable code.** Every `coding` and `ml_coding` question in Python or SQL also gets `code` (jsonb),
+which the portal's editor runs in the browser (Pyodide for Python, PGlite Postgres for SQL):
+
+```json
+{
+  "language": "python",
+  "entry": "repeat_buyers",
+  "params": ["orders", "k"],
+  "starter": "def repeat_buyers(orders: list[tuple[int, str, str]], k: int) -> dict[str, int]:\n    pass\n",
+  "tests": [
+    {"name": "Example", "hidden": false, "args": [[[1, "s1", "b1"], [3, "s1", "b1"]], 3], "expected": {"s1": 1}},
+    {"name": "Empty input", "hidden": true, "args": [[], 5], "expected": {}}
+  ]
+}
+```
+
+```json
+{
+  "language": "sql",
+  "starter": "-- PostgreSQL. Tables: buyers, show_events.\n",
+  "schema": "create table buyers (buyer_id int primary key, first_seen_at timestamp); ...",
+  "tests": [
+    {"name": "Example", "hidden": false, "setup": "insert into buyers values (1, '2026-09-07 10:00'); ...",
+     "expected": {"columns": ["cohort_week", "new_buyers"], "rows": [["2026-09-07", "3"]]}}
+  ]
+}
+```
+
+- Python calls `entry(*args)` and compares to `expected` as JSON (tuples count as lists, floats to
+  6 places). Add `"ordered": false` when any list order is fine.
+- SQL starts each test from an empty database, runs `schema`, then `setup`, then the answer, and
+  compares the last result table. Columns are matched by position, row order is ignored unless
+  `"ordered": true`, and numbers match within 0.005 (so 0.666 matches 0.67).
+- 2 visible tests (the prompt's example first) and 3 or 4 hidden ones for the edge cases the rubric
+  names. Get every `expected` by running the reference solution, never by hand: Python locally, SQL
+  in PGlite (`node` with `@electric-sql/pglite` from app/, using `SQL_PARSERS` from
+  app/src/lib/runner/sql.ts so values come back as text).
+- `starter` is the signature or a comment naming the tables, never part of the solution.
 
 `reason` is one or two sentences the owner sees as "Why this question". It names the gap, for
 example: "Monitoring and drift: you scored 0.5/5 on Oct 16 and missed drift detection and alerting,
