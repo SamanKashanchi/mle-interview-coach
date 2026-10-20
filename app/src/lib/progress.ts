@@ -1,4 +1,4 @@
-// Everything the habit loop shows (streak, goal ring, mastery, readiness, reviews)
+// Everything the habit loop shows (goal ring, mastery, reviews)
 // is computed here from question history. Pure functions, so mock and real data behave the same.
 // The question generator uses the same formulas (agents/questions/README.md).
 
@@ -105,48 +105,7 @@ export function topicStats(items: HistoryItemView[], focus: FocusTopicView[]): T
   })
 }
 
-// ---- Readiness: the north-star number ----
-
-/**
- * Sum of focus weight x mastery. Topics with no grade count as 0 here (no evidence yet),
- * so readiness starts at 0% and only grows with graded answers.
- */
-export function readiness(scores: Map<number, number[]>, focus: FocusTopicView[]) {
-  return focus.reduce((sum, f) => {
-    const s = scores.get(f.topic_id)
-    return sum + (s?.length ? f.weight * mastery(s) : 0)
-  }, 0)
-}
-
-/** Readiness at the end of each of the last `days` days. */
-export function readinessSeries(items: HistoryItemView[], focus: FocusTopicView[], today: Day, days = 14) {
-  return Array.from({ length: days }, (_, i) => {
-    const day = addDays(today, i - days + 1)
-    const end = new Date(`${addDays(day, 1)}T00:00:00`).toISOString()
-    return { day, value: readiness(scoresByTopic(items, { before: end }), focus) }
-  })
-}
-
-/**
- * Where readiness is heading by the ready-by date. Mastery saturates (each point is harder to
- * earn than the last), so the gap to 100% is assumed to shrink at the rate it shrank over the
- * series, not to close in a straight line. Needs grades on at least 3 different days.
- */
-export function projectReadiness(items: HistoryItemView[], series: { day: Day; value: number }[], readyBy: Day | null) {
-  if (!readyBy || series.length < 2) return null
-  const first = series[0].day
-  const gradedDays = new Set(graded(items).map((h) => localDay(h.graded_at!)).filter((d) => d >= first))
-  if (gradedDays.size < 3) return null
-  const start = series[0].value
-  const now = series[series.length - 1].value
-  if (now <= start) return now
-  const span = daysBetween(first, series[series.length - 1].day)
-  const rate = Math.log((1 - start) / (1 - now)) / span // per day
-  const ahead = Math.max(0, daysBetween(series[series.length - 1].day, readyBy))
-  return 1 - (1 - now) * Math.exp(-rate * ahead)
-}
-
-// ---- Activity, streak and freezes ----
+// ---- Activity ----
 
 export interface DayActivity {
   day: Day
@@ -179,36 +138,6 @@ export function activityByDay(items: HistoryItemView[]) {
 /** Minutes credited for the latest answer: time spent, capped at the question's length. */
 export const practiceMinutes = (h: HistoryItemView) =>
   h.answered_at ? Math.min(h.seconds_spent ?? h.minutes * 60, h.minutes * 60) / 60 : 0
-
-export interface Streak {
-  current: number
-  longest: number
-  freezes: number
-  frozen: Set<Day>
-  answeredToday: boolean
-}
-
-/** Duolingo-style: a day counts with one answer, every 7 days earns a freeze (bank 2). */
-export function streak(activeDays: Set<Day>, today: Day): Streak {
-  const out: Streak = { current: 0, longest: 0, freezes: 0, frozen: new Set(), answeredToday: activeDays.has(today) }
-  const sorted = [...activeDays].sort()
-  if (!sorted.length) return out
-  for (let d = sorted[0]; d <= today; d = addDays(d, 1)) {
-    if (activeDays.has(d)) {
-      out.current++
-      out.longest = Math.max(out.longest, out.current)
-      if (out.current % 7 === 0) out.freezes = Math.min(2, out.freezes + 1)
-    } else if (d === today) {
-      // Today isn't over yet.
-    } else if (out.freezes > 0) {
-      out.freezes--
-      out.frozen.add(d)
-    } else {
-      out.current = 0
-    }
-  }
-  return out
-}
 
 // ---- Spaced review (Anki-style) ----
 

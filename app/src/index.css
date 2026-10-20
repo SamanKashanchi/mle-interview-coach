@@ -18,8 +18,6 @@
   --warn-text: #8a5a00;
   --danger: #b42318;
   --danger-soft: #fdecea;
-  --flame: #c2410c;
-  --frost: #1d6fb0;
   color-scheme: light;
 }
 
@@ -41,8 +39,6 @@
     --warn-text: #f0c46a;
     --danger: #f1857b;
     --danger-soft: #3a1c19;
-    --flame: #ff8a4c;
-    --frost: #6cb4ee;
     color-scheme: dark;
   }
 }
@@ -64,8 +60,6 @@
   --color-warn-text: var(--warn-text);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --color-flame: var(--flame);
-  --color-frost: var(--frost);
   --animate-pop: pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   --animate-rise: rise 260ms ease-out both;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
