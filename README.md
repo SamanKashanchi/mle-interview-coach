@@ -19,9 +19,9 @@ Steps 2 to 5 are run by Claude from the project chat (say "grade" to grade pendi
 ## The portal (`app/`)
 
 A Vite + React + TypeScript app styled with Tailwind. Pages: sign-in, a first-run setup wizard, then
-Today (daily goal ring, streak, readiness), Question (answer, then see your grade), History (calendar and
+Today (daily goal ring), Question (answer, then see your grade), History (calendar and
 weak spots, every past day), Plan (with a mastery level per topic), Targets (with each company's research) and Profile. All database access goes
-through `app/src/lib/db.ts`; streaks, mastery, readiness and reviews are computed in `app/src/lib/progress.ts`.
+through `app/src/lib/db.ts`; mastery and reviews are computed in `app/src/lib/progress.ts`.
 
 ### Run it locally (Windows PowerShell)
 

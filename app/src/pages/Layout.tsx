@@ -1,11 +1,8 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CalendarCheck, Crosshair, History, ListOrdered, UserRound } from 'lucide-react'
 import { Logo } from '../components/Logo'
 import { cx } from '../lib/cx'
-import { db, isMock } from '../lib/db'
-import { useAsync } from '../lib/useAsync'
-import { activityByDay, localDay, streak } from '../lib/progress'
-import { StreakFlame } from '../components/habit'
+import { isMock } from '../lib/db'
 import { useAuth } from '../lib/useAuth'
 
 const NAV = [
@@ -21,13 +18,6 @@ export default function Layout() {
   const { pathname } = useLocation()
   // Question pages count as part of Today for the nav highlight.
   const isActive = (to: string, active: boolean) => active || (to === '/' && pathname.startsWith('/questions'))
-  // Refreshed on every navigation so an answer submitted a moment ago lights the flame.
-  const { data: st } = useAsync(async () => streak(new Set(activityByDay(await db.getHistory()).keys()), localDay()), [pathname])
-  const flame = st && (
-    <Link to="/history" className="rounded-lg px-1 text-lg" aria-label={`${st.current}-day streak`}>
-      <StreakFlame days={st.current} active={st.answeredToday} />
-    </Link>
-  )
   return (
     <div className="min-h-dvh md:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
@@ -38,7 +28,6 @@ export default function Layout() {
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line px-4 py-6 md:flex">
         <div className="flex items-center justify-between gap-2 pr-2">
           <Logo className="px-3" />
-          {flame}
         </div>
         <nav aria-label="Main" className="mt-10 space-y-1">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -69,7 +58,6 @@ export default function Layout() {
         <Logo />
         <div className="flex items-center gap-3">
           {isMock && <span className="text-xs font-medium text-warn-text">Mock data</span>}
-          {flame}
         </div>
       </header>
 

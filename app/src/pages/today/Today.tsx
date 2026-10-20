@@ -7,7 +7,7 @@ import { daysUntil, formatDate, greeting } from '../../lib/format'
 import { addDays, averageBetween, dueReviews, fmtScore, isReview, practiceMinutes, setsOf } from '../../lib/progress'
 import type { HistoryItemView, Profile, TargetView } from '../../lib/types'
 import { Card, EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
-import { GoalRing, StreakFlame } from '../../components/habit'
+import { GoalRing } from '../../components/habit'
 import { QuestionCard } from '../../components/QuestionCard'
 
 export default function Today() {
@@ -21,8 +21,7 @@ export default function Today() {
   return (
     <>
       <Header profile={p.profile} />
-      <HabitStrip p={p} todays={todays} />
-      <StreakNudge p={p} todays={todays} />
+      <GoalStrip p={p} todays={todays} />
       {todays.length ? (
         <>
           <SessionComplete p={p} todays={todays} />
@@ -64,53 +63,24 @@ function Header({ profile }: { profile: Profile | null }) {
   )
 }
 
-/** Goal ring, streak and readiness: the three numbers worth checking every day. */
-function HabitStrip({ p, todays }: { p: Progress; todays: HistoryItemView[] }) {
+/** Today's practice minutes against the daily goal. */
+function GoalStrip({ p, todays }: { p: Progress; todays: HistoryItemView[] }) {
   const goal = p.profile?.minutes_per_day ?? 60
   const minutes = p.activity.get(p.today)?.minutes ?? 0
-  const st = p.streak
   return (
-    <section aria-label="Your progress today" className="mb-6 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface">
-      <Link to={todays.length ? `/history/${p.today}` : '/history'} className="flex flex-col items-center gap-2 rounded-l-2xl px-2 py-4 text-center hover:bg-raised sm:flex-row sm:gap-4 sm:px-5 sm:text-left">
-        <GoalRing minutes={minutes} goal={goal} size={64} />
-        <div>
-          <p className="text-sm font-semibold">{minutes >= goal ? 'Goal met' : 'Daily goal'}</p>
-          <p className="text-xs text-muted">{goal} min a day</p>
-        </div>
-      </Link>
-      <Link to="/history" className="flex flex-col items-center justify-center gap-1 px-2 py-4 text-center hover:bg-raised">
-        <StreakFlame days={st.current} active={st.answeredToday} className="text-3xl" />
-        <p className="text-sm font-semibold">day streak</p>
+    <Link
+      to={todays.length ? `/history/${p.today}` : '/history'}
+      aria-label="Your progress today"
+      className="mb-6 flex items-center gap-4 rounded-2xl border border-line bg-surface px-5 py-4 hover:bg-raised"
+    >
+      <GoalRing minutes={minutes} goal={goal} size={64} />
+      <div>
+        <p className="text-sm font-semibold">{minutes >= goal ? 'Goal met' : 'Daily goal'}</p>
         <p className="text-xs text-muted">
-          {st.freezes ? `${st.freezes} ${st.freezes === 1 ? 'freeze' : 'freezes'} saved` : st.answeredToday ? 'Today counts' : 'Answer one to keep it'}
+          {Math.round(minutes)} of {goal} min practiced today
         </p>
-      </Link>
-      <Link to="/plan" className="flex flex-col items-center justify-center gap-1 rounded-r-2xl px-2 py-4 text-center hover:bg-raised">
-        <span className="text-3xl font-semibold tabular-nums">{Math.round(p.readiness * 100)}%</span>
-        <p className="text-sm font-semibold">Interview ready</p>
-        <p className="text-xs text-muted">
-          {p.projected != null && p.profile?.ready_by
-            ? `On pace for ${Math.round(p.projected * 100)}% by ${formatDate(p.profile.ready_by, { month: 'short', day: 'numeric' })}`
-            : 'Trend after 3 graded days'}
-        </p>
-      </Link>
-    </section>
-  )
-}
-
-/** A calm reminder in the evening if the streak is waiting on today. */
-function StreakNudge({ p, todays }: { p: Progress; todays: HistoryItemView[] }) {
-  if (p.streak.answeredToday || p.streak.current === 0 || new Date().getHours() < 18) return null
-  const next = todays.find((h) => !h.answer_id)
-  return (
-    <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn-text">
-      Keep your {p.streak.current}-day streak: one question takes {next?.minutes ?? 15} min.
-      {next && (
-        <Link to={`/questions/${next.id}`} className="ml-1 font-semibold underline-offset-2 hover:underline">
-          Start {next.topic.name}
-        </Link>
-      )}
-    </p>
+      </div>
+    </Link>
   )
 }
 
@@ -132,7 +102,7 @@ function SessionComplete({ p, todays }: { p: Progress; todays: HistoryItemView[]
           <div>
             <h2 className="font-semibold">Set complete</h2>
             <p className="mt-1 text-sm text-muted">
-              {minutes} min · streak {p.streak.current} · {topics.join(', ')}
+              {minutes} min · {topics.join(', ')}
             </p>
             <p className="mt-2 text-sm text-muted">Say "grade" in the project chat and your results land here.</p>
           </div>
@@ -247,7 +217,7 @@ function NoQuestions() {
           ? `Next, Claude researches how ${listNames(pending.map((t) => t.company))} interview${pending.length === 1 ? 's' : ''}, builds your plan, and writes a daily set sized to your time.`
           : 'Claude builds your plan from your research, then writes a daily set sized to your time.'}
       </p>
-      <p className="mt-3">Answer your first question to start your streak and your history.</p>
+      <p className="mt-3">Answer your first question to start your history.</p>
       <p className="mt-3">
         <Link to="/targets" className="font-medium text-accent-text underline-offset-2 hover:underline">
           See your targets

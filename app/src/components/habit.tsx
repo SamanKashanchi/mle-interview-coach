@@ -1,9 +1,9 @@
-// The habit loop's visual pieces: goal ring, streak flame, score and level pills, activity
+// The habit loop's visual pieces: goal ring, score and level pills, activity
 // calendar, daily score bars and one-time toasts. Numbers come from lib/progress.
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Flame, Snowflake, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { cx } from '../lib/cx'
 import { formatDate, scoreLabel } from '../lib/format'
 import { addDays, fmtScore, LEVEL_LABEL, LEVELS, type Day, type DayActivity, type Level } from '../lib/progress'
@@ -49,31 +49,6 @@ export function GoalRing({ minutes, goal, size = 88 }: { minutes: number; goal: 
         {Math.round(minutes)} of {goal} minutes practiced today{met ? ', goal met' : ''}
       </span>
     </div>
-  )
-}
-
-// ---- Streak (Duolingo) ----
-
-export function StreakFlame({ days, active, className }: { days: number; active: boolean; className?: string }) {
-  return (
-    <span
-      className={cx('inline-flex items-center gap-1 font-semibold tabular-nums', days > 0 && active ? 'text-flame' : 'text-faint', className)}
-      title={active ? `${days}-day streak` : days > 0 ? `${days}-day streak. Answer a question today to keep it.` : 'No streak yet'}
-    >
-      <Flame aria-hidden className={cx('size-[1.1em]', days > 0 && active && 'fill-current')} />
-      {days}
-      <span className="sr-only"> day streak</span>
-    </span>
-  )
-}
-
-export function Freezes({ count }: { count: number }) {
-  if (!count) return null
-  return (
-    <span className="inline-flex items-center gap-1 text-sm text-frost" title={`${count} streak ${count === 1 ? 'freeze' : 'freezes'} saved`}>
-      <Snowflake aria-hidden className="size-4" />
-      {count} {count === 1 ? 'freeze' : 'freezes'}
-    </span>
   )
 }
 
@@ -123,13 +98,11 @@ function heat(avg: number | null) {
 
 export function ActivityCalendar({
   activity,
-  frozen,
   today,
   hasQuestions,
   weeks = 12,
 }: {
   activity: Map<Day, DayActivity>
-  frozen: Set<Day>
   today: Day
   hasQuestions: Set<Day>
   weeks?: number
@@ -143,16 +116,14 @@ export function ActivityCalendar({
       <div className="grid grid-flow-col grid-rows-7 gap-1" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}>
         {days.map((d) => {
           const a = activity.get(d)
-          const isFrozen = frozen.has(d)
           const future = d > today
           const label = `${formatDate(d, { weekday: 'short', month: 'short', day: 'numeric' })} · ${
-            a ? `${a.answered} answered${a.avg != null ? ` · avg ${fmtScore(a.avg)}` : ''}` : isFrozen ? 'streak freeze used' : 'no practice'
+            a ? `${a.answered} answered${a.avg != null ? ` · avg ${fmtScore(a.avg)}` : ''}` : 'no practice'
           }`
           const cell = (
             <span
               className={cx(
                 'block aspect-square w-full rounded-[4px]',
-                isFrozen && 'ring-2 ring-inset ring-frost',
                 d === today && 'outline outline-2 outline-offset-1 outline-ink/40',
                 future && 'opacity-0',
               )}
@@ -179,7 +150,6 @@ export function ActivityCalendar({
             <span key={s} className="size-3 rounded-[3px]" style={{ background: heat(s) }} />
           ))}
           Higher
-          <span className="ml-2 size-3 rounded-[3px] ring-2 ring-inset ring-frost" /> Freeze
         </span>
       </div>
     </div>

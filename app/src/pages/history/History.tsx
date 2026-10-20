@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BookOpenCheck, ChevronDown, CircleDashed, Search, Snowflake, TrendingDown, TrendingUp } from 'lucide-react'
+import { BookOpenCheck, ChevronDown, CircleDashed, Search, TrendingDown, TrendingUp } from 'lucide-react'
 import { useProgress, type Progress } from '../../lib/useProgress'
 import { FORMAT_LABEL, formatDate, plainPreview, scoreLabel } from '../../lib/format'
 import { addDays, averageBetween, fmtScore, groupByDay, type DaySummary } from '../../lib/progress'
 import type { HistoryItemView, QuestionFormat } from '../../lib/types'
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton, SkeletonList } from '../../components/ui'
-import { ActivityCalendar, DailyScores, Freezes, LevelPill, ScorePill, Stat, StreakFlame } from '../../components/habit'
+import { ActivityCalendar, DailyScores, LevelPill, ScorePill, Stat } from '../../components/habit'
 import { Difficulty } from '../question/meta'
 import { cx } from '../../lib/cx'
 
@@ -39,7 +39,7 @@ export default function History() {
       <>
         {header}
         <EmptyState icon={<BookOpenCheck className="size-6" />} title="Answer your first question to start your history">
-          Your days, grades, streak and weakest topics will collect here.
+          Your days, grades and weakest topics will collect here.
           <p className="mt-3">
             <Link to="/" className="font-medium text-accent-text underline-offset-2 hover:underline">Go to Today</Link>
           </p>
@@ -54,7 +54,7 @@ export default function History() {
       <ProgressTiles p={data} />
       <Card className="mt-4">
         <h2 className="mb-4 font-semibold">Practice calendar</h2>
-        <ActivityCalendar activity={data.activity} frozen={data.streak.frozen} today={data.today} hasQuestions={new Set(data.items.map((h) => h.set_date))} />
+        <ActivityCalendar activity={data.activity} today={data.today} hasQuestions={new Set(data.items.map((h) => h.set_date))} />
       </Card>
       <Card className="mt-4">
         <DailyScores
@@ -78,7 +78,7 @@ function ProgressTiles({ p }: { p: Progress }) {
   const prior = averageBetween(p.activity, addDays(p.today, -13), addDays(p.today, -7))
   const delta = week != null && prior != null ? week - prior : null
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-4">
       <Stat label="Overall" value={overall != null ? fmtScore(overall) : '–'} sub={`${all.length} graded`} />
       <Stat
         label="Last 7 days"
@@ -93,16 +93,6 @@ function ProgressTiles({ p }: { p: Progress }) {
               {fmtScore(delta)} vs week before
             </span>
           )
-        }
-      />
-      <Stat
-        label="Streak"
-        value={<StreakFlame days={p.streak.current} active={p.streak.answeredToday} />}
-        sub={
-          <span className="flex flex-wrap gap-x-2">
-            <span>Best {p.streak.longest}</span>
-            <Freezes count={p.streak.freezes} />
-          </span>
         }
       />
     </div>
@@ -230,7 +220,7 @@ function Days({ p }: { p: Progress }) {
       {days.length ? (
         <ol className="mt-4 space-y-3">
           {days.map((d, i) => (
-            <DayRow key={d.day} d={d} full={full.get(d.day)!} open={i === 0 || !!active} frozen={p.streak.frozen.has(d.day)} />
+            <DayRow key={d.day} d={d} full={full.get(d.day)!} open={i === 0 || !!active} />
           ))}
         </ol>
       ) : (
@@ -240,7 +230,7 @@ function Days({ p }: { p: Progress }) {
   )
 }
 
-function DayRow({ d, full, open, frozen }: { d: DaySummary; full: DaySummary; open: boolean; frozen: boolean }) {
+function DayRow({ d, full, open }: { d: DaySummary; full: DaySummary; open: boolean }) {
   const topics = [...new Set(full.items.map((h) => h.topic.name))]
   return (
     <li>
@@ -250,11 +240,6 @@ function DayRow({ d, full, open, frozen }: { d: DaySummary; full: DaySummary; op
             <p className="font-semibold">{formatDate(d.day, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
             <p className="text-sm text-muted">
               {full.answered} of {full.items.length} answered
-              {frozen && (
-                <span className="ml-2 inline-flex items-center gap-1 text-frost">
-                  <Snowflake aria-hidden className="size-3.5" /> Freeze used
-                </span>
-              )}
             </p>
             <p className="mt-1 hidden truncate text-xs text-faint sm:block">{topics.join(' · ')}</p>
           </div>

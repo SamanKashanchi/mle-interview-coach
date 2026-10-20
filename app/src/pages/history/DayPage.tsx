@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Snowflake } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useProgress } from '../../lib/useProgress'
 import { formatDate } from '../../lib/format'
 import { addDays, fmtScore, isReview, practiceMinutes } from '../../lib/progress'
@@ -44,12 +44,6 @@ export default function DayPage() {
         </div>
         {avg != null && <ScorePill score={avg} suffix=" avg" className="text-sm" />}
       </header>
-
-      {p.streak.frozen.has(date) && (
-        <p className="mt-4 inline-flex items-center gap-2 rounded-xl border border-frost/40 px-3 py-2 text-sm text-frost">
-          <Snowflake aria-hidden className="size-4" /> A streak freeze covered this day, so your streak kept going.
-        </p>
-      )}
 
       {items.length ? (
         <ol className="mt-8 space-y-3">
