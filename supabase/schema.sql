@@ -293,3 +293,13 @@ alter table public.questions add column if not exists code jsonb;
 -- Code answers: the language and the test results from the in-browser runner at submit time.
 alter table public.answers add column if not exists language text check (language in ('python','sql'));
 alter table public.answers add column if not exists run_result jsonb;
+
+-- Mac mini grader ------------------------------------------------------------------------
+
+-- How many answers are waiting for a grade. Only a number, no content, so worker/grader.mjs can
+-- check cheaply with the public key. The grading itself goes through the Supabase MCP.
+create or replace function public.pending_grades() returns int
+language sql stable security definer set search_path = public
+as $$ select count(*)::int from public.answers where status = 'pending' $$;
+revoke all on function public.pending_grades() from public;
+grant execute on function public.pending_grades() to anon, authenticated;

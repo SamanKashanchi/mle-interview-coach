@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { clock, useElapsed } from '../../lib/useElapsed'
+import { usePollWhile } from '../../lib/usePollWhile'
 import { Check, ChevronDown, CircleDashed, Clock, Minus, RotateCcw, Send, X } from 'lucide-react'
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
@@ -14,6 +15,7 @@ const CODE_FORMATS = new Set(['coding', 'ml_coding'])
 export function AnswerPanel({ q }: { q: QuestionView }) {
   const { data, error, loading, reload } = useAsync(() => db.getAnswers(q.id), [q.id])
   const [composing, setComposing] = useState(false)
+  usePollWhile(data?.[0]?.status === 'pending', reload)
 
   if (error) return <ErrorState message={error} onRetry={reload} className="mt-4" />
   if (loading && !data) return <Skeleton className="mt-4 h-48 w-full rounded-2xl" />
@@ -172,8 +174,8 @@ export function Pending() {
         <div>
           <h2 className="font-semibold">Submitted. Waiting for a grade.</h2>
           <p className="mt-1 text-muted">
-            Claude grades pending answers when you say "grade" in the project chat. Your score, feedback on each point and a model
-            answer will show up here.
+            The grader usually picks it up within a minute or two. Your score, feedback on each point and a model answer will
+            show up here by themselves.
           </p>
         </div>
       </div>

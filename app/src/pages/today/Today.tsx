@@ -104,7 +104,7 @@ function SessionComplete({ p, todays }: { p: Progress; todays: HistoryItemView[]
             <p className="mt-1 text-sm text-muted">
               {minutes} min · {topics.join(', ')}
             </p>
-            <p className="mt-2 text-sm text-muted">Say "grade" in the project chat and your results land here.</p>
+            <p className="mt-2 text-sm text-muted">Your grades land here as soon as the grader finishes.</p>
           </div>
         </div>
       </Card>

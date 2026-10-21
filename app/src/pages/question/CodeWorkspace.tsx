@@ -7,6 +7,7 @@ import { Check, CircleDashed, Clock, LoaderCircle, Play, RotateCcw, Send, X } fr
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
 import { clock, useElapsed } from '../../lib/useElapsed'
+import { usePollWhile } from '../../lib/usePollWhile'
 import { formatDate } from '../../lib/format'
 import { cx } from '../../lib/cx'
 import { LANGUAGE_LABEL, runCode, STATUS_LABEL, TIME_LIMIT_MS, warmUp } from '../../lib/runner/runner'
@@ -21,6 +22,7 @@ type Q = QuestionView & { code: CodeSpec }
 
 export default function CodeWorkspace({ q, header, footer }: { q: Q; header: ReactNode; footer: ReactNode }) {
   const answers = useAsync(() => db.getAnswers(q.id), [q.id])
+  usePollWhile(answers.data?.[0]?.status === 'pending', answers.reload)
   const [tab, setTab] = useState<'description' | 'submissions'>('description')
 
   useEffect(() => warmUp(q.code.language), [q.code.language])

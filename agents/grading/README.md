@@ -43,12 +43,24 @@ order by a.created_at;
 
 ## Output
 
+One statement per answer, so the grade and the status change land together:
+
 ```sql
-insert into grades (answer_id, score, rubric_scores, strengths, improvements, model_answer)
-values ('<answer id>', 3.5,
-  '[{"point": "Cohorts buyers by the week of first_seen_at", "verdict": "met", "note": "date_trunc(''week'', first_seen_at) in the first CTE."}]',
-  array['...'], array['...'], '...');
-update answers set status = 'graded' where id = '<answer id>';
+with g as (
+  insert into grades (answer_id, score, rubric_scores, strengths, improvements, model_answer)
+  values ('<answer id>', 3.5,
+    '[{"point": "Cohorts buyers by the week of first_seen_at", "verdict": "met", "note": "date_trunc(''week'', first_seen_at) in the first CTE."}]',
+    array['...'], array['...'], '...')
+  returning answer_id
+)
+update answers set status = 'graded' where id in (select answer_id from g);
 ```
 
-The portal shows the grade as soon as the row exists.
+The portal shows the grade as soon as the row exists, and the question page checks for it every
+20 seconds while an answer is pending.
+
+## Who runs it
+
+- **The Mac mini grader** (`worker/`): checks `pending_grades()` every 10 seconds and runs this
+  recipe through Claude Code headless as soon as an answer is waiting. See worker/README.md.
+- **By hand**: say "grade" in the project chat, for example when the Mac mini is off.
