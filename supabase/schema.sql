@@ -49,10 +49,36 @@ language sql security invoker set search_path = public as $$
   select id from public.companies where lower(name) = lower(trim(p_name));
 $$;
 
+-- One standard name per role, so research for "ML Engineer" also serves "Senior Machine Learning
+-- Engineer, Growth": drops team/location suffixes (after , ( - |) and level words (Senior, Staff,
+-- II, L5...), expands ML/MLE/SWE/SDE, and treats developer/eng/engineering as engineer.
+-- The level lives in profiles.level and the team's details in targets.job_description.
+create or replace function public.standard_role_name(p text) returns text
+language plpgsql immutable set search_path = public as $$
+declare s text := lower(coalesce(p, ''));
+begin
+  s := regexp_replace(s, '\msoftware (engineer|developer)\s*(,|\(|-|–|—|\|)\s*(machine learning|ml)\M.*$', 'machine learning engineer');
+  s := regexp_replace(s, '\s*(,|\(|\s-\s|\s–\s|\s—\s|\|).*$', '');
+  s := regexp_replace(s, '\m(ml|ai)\s*/\s*(ml|ai)\M', 'ml', 'g');
+  s := regexp_replace(s, '[^a-z0-9+#& ]', ' ', 'g');
+  s := ' ' || regexp_replace(s, '\s+', ' ', 'g') || ' ';
+  s := regexp_replace(s, ' (senior|sr|staff|principal|lead|junior|jr|entry level|mid level|new grad|i|ii|iii|iv|1|2|3|4|5|l[3-7]|e[3-7]) ', ' ', 'g');
+  s := regexp_replace(s, ' (senior|sr|staff|principal|lead|junior|jr|i|ii|iii|iv) ', ' ', 'g');
+  s := replace(s, ' mle ', ' machine learning engineer ');
+  s := replace(s, ' swe ', ' software engineer ');
+  s := replace(s, ' sde ', ' software engineer ');
+  s := replace(s, ' ml ', ' machine learning ');
+  s := regexp_replace(s, ' (eng|engr|engineering) ', ' engineer ', 'g');
+  s := regexp_replace(s, ' developer ', ' engineer ', 'g');
+  s := btrim(regexp_replace(s, '\s+', ' ', 'g'));
+  if s = '' then return btrim(p); end if;
+  return regexp_replace(initcap(s), '\mAi\M', 'AI', 'g');
+end $$;
+
 create or replace function public.ensure_role(p_name text) returns uuid
 language sql security invoker set search_path = public as $$
-  insert into public.roles (name) values (trim(p_name)) on conflict ((lower(name))) do nothing;
-  select id from public.roles where lower(name) = lower(trim(p_name));
+  insert into public.roles (name) values (public.standard_role_name(p_name)) on conflict ((lower(name))) do nothing;
+  select id from public.roles where lower(name) = lower(public.standard_role_name(p_name));
 $$;
 
 revoke execute on function public.ensure_company(text), public.ensure_role(text) from anon, public;

@@ -45,6 +45,7 @@ export function TargetFields({
           required
           list={`${id}-roles`}
           placeholder="e.g. Machine Learning Engineer"
+          hint="Saved as a standard title: Senior ML Engineer becomes Machine Learning Engineer."
           value={value.role}
           onChange={(e) => set({ role: e.target.value })}
         />
