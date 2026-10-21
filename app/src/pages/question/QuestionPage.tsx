@@ -12,6 +12,7 @@ import { LevelPill, OnceToasts } from '../../components/habit'
 import { QuestionMeta } from './meta'
 import { Markdown } from '../../components/Markdown'
 import { AnswerPanel } from './AnswerPanel'
+import { ReadAloud } from '../../components/ReadAloud'
 import type { CodeSpec, QuestionView } from '../../lib/types'
 
 // The editor, Python and Postgres only download on coding questions.
@@ -74,6 +75,7 @@ export default function QuestionPage() {
       </p>
       {stat && <LevelPill level={stat.level} className="mt-2" />}
       <QuestionMeta q={q} className="mt-4" />
+      <ReadAloud key={q.id} title={q.topic.name} prompt={q.prompt} className="mt-4" />
       {q.reason && (
         <p className="mt-4 flex gap-2 text-sm text-muted">
           <Lightbulb aria-hidden className="mt-0.5 size-4 shrink-0 text-faint" />
