@@ -3,9 +3,10 @@
 // nothing filled in yet) or ?mock=signedout.
 
 import type { Backend } from '../lib/db'
-import type { Answer, Company, Profile, Reminder, Role, SessionUser, Target, TargetInput } from '../lib/types'
+import type { Answer, Company, Profile, Question, QuestionRequest, Reminder, Role, SessionUser, Target, TargetInput } from '../lib/types'
 import * as fx from './fixtures'
 import { VOICE_PLACEHOLDER } from '../lib/voice'
+import { localDay } from '../lib/progress'
 
 // Recordings made in mock mode, playable until the page reloads.
 const mockAudio = new Map<string, string>()
@@ -18,12 +19,14 @@ interface State {
   roles: Role[]
   answers: Answer[]
   reminders: Reminder[]
+  requests: QuestionRequest[]
+  generated: Question[] // written for requests
 }
 
 const KEY = 'mock-state'
 
 function initial(scenario: string): State {
-  const base = { companies: fx.companies, roles: fx.roles, answers: [] as Answer[], reminders: [] as Reminder[] }
+  const base = { companies: fx.companies, roles: fx.roles, answers: [] as Answer[], reminders: [] as Reminder[], requests: [] as QuestionRequest[], generated: [] as Question[] }
   if (scenario === 'signedout') return { ...base, user: null, profile: null, targets: [] }
   if (scenario === 'new') return { ...base, user: fx.MOCK_USER, profile: null, targets: [] }
   return { ...base, user: fx.MOCK_USER, profile: fx.profile, targets: fx.targets, answers: fx.answers, reminders: fx.reminders }
@@ -40,7 +43,7 @@ function load(): State {
     const raw = sessionStorage.getItem(KEY)
     if (raw) {
       const saved = JSON.parse(raw) as Partial<State>
-      return { ...initial('full'), ...saved, answers: saved.answers ?? [], reminders: saved.reminders ?? [] }
+      return { ...initial('full'), ...saved, answers: saved.answers ?? [], reminders: saved.reminders ?? [], requests: saved.requests ?? [], generated: saved.generated ?? [] }
     }
   } catch {
     // Storage unavailable: fall through to the default scenario.
@@ -90,6 +93,7 @@ function requireUser(): SessionUser {
 }
 
 const topicById = (id: number) => fx.topics.find((t) => t.id === id)!
+const allQuestions = () => [...fx.questions, ...state.generated]
 const companyName = (id: string | null) => state.companies.find((c) => c.id === id)?.name ?? null
 
 export const mockBackend: Backend = {
@@ -201,7 +205,7 @@ export const mockBackend: Backend = {
   async getHistory() {
     await wait()
     if (!own(state.targets)) return []
-    return fx.questions.map((q) => {
+    return allQuestions().map((q) => {
       const attempts = state.answers.filter((a) => a.question_id === q.id).sort((a, b) => a.created_at.localeCompare(b.created_at))
       const latest = attempts[attempts.length - 1]
       const graded = [...attempts].reverse().find((a) => fx.grades.some((g) => g.answer_id === a.id))
@@ -232,7 +236,7 @@ export const mockBackend: Backend = {
   },
   async getQuestion(id) {
     await wait()
-    const q = fx.questions.find((x) => x.id === id)
+    const q = allQuestions().find((x) => x.id === id)
     return q ? { ...q, topic: topicById(q.topic_id), company: companyName(q.company_id) } : null
   },
   async getResearch(companyId, roleId) {
@@ -319,6 +323,29 @@ export const mockBackend: Backend = {
     await wait()
     return { sent: 1, failed: 0 }
   },
+  async requestQuestions(input) {
+    await wait(400)
+    if (state.requests.some((r) => r.status === 'pending' || r.status === 'working'))
+      throw new Error('Your last request is still being written. Wait for it to finish.')
+    const req: QuestionRequest = {
+      id: crypto.randomUUID(),
+      set_date: localDay(),
+      ...input,
+      status: 'pending',
+      note: null,
+      created_at: new Date().toISOString(),
+      finished_at: null,
+    }
+    state.requests.push(req)
+    commit()
+    // Stand-in for the Mac mini: "writes" copies of fixture questions a few seconds later.
+    setTimeout(() => finishMockRequest(req.id), 4000)
+    return req
+  },
+  async latestQuestionRequest() {
+    const today = state.requests.filter((r) => r.set_date === localDay())
+    return today[today.length - 1] ?? null
+  },
   async getAnswers(questionId) {
     await wait()
     return state.answers
@@ -333,4 +360,24 @@ export function mockCompleteSignIn(email: string) {
   state = { ...state, user: { ...fx.MOCK_USER, email } }
   commit()
   listeners.forEach((l) => l(state.user))
+}
+
+function finishMockRequest(id: string) {
+  const req = state.requests.find((r) => r.id === id)
+  if (!req) return
+  const now = new Date().toISOString()
+  const pool = fx.questions.filter(
+    (q) => (!req.formats.length || req.formats.includes(q.format)) && (!req.topic_ids.length || req.topic_ids.includes(q.topic_id)),
+  )
+  const from = pool.length ? pool : fx.questions
+  const made = Array.from({ length: req.count }, (_, i) => ({
+    ...from[i % from.length],
+    id: `g-${id.slice(0, 8)}-${i}`,
+    set_date: req.set_date,
+    created_at: now,
+    reason: 'You asked for this. (Mock mode copies an example question.)',
+  }))
+  state.generated.push(...made)
+  state.requests = state.requests.map((r) => (r.id === id ? { ...r, status: 'done', finished_at: now } : r))
+  commit()
 }

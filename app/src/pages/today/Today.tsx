@@ -9,6 +9,7 @@ import type { HistoryItemView, Profile, TargetView } from '../../lib/types'
 import { Card, EmptyState, ErrorState, Skeleton, SkeletonList } from '../../components/ui'
 import { GoalRing } from '../../components/habit'
 import { QuestionCard } from '../../components/QuestionCard'
+import { GenerateQuestions } from '../../components/GenerateQuestions'
 
 export default function Today() {
   const { data, error, loading, reload } = useProgress()
@@ -22,6 +23,7 @@ export default function Today() {
     <>
       <Header profile={p.profile} />
       <GoalStrip p={p} todays={todays} />
+      {(p.items.length > 0 || p.focus.length > 0) && <GenerateQuestions focus={p.focus} onDone={reload} />}
       {todays.length ? (
         <>
           <SessionComplete p={p} todays={todays} />
@@ -195,7 +197,7 @@ function NoSetYet({ p }: { p: Progress }) {
   const names = new Map(p.stats.map((t) => [t.topic_id, t.name]))
   return (
     <EmptyState icon={<Sparkles className="size-6" />} title="No new set yet today">
-      <p>The worker on the Mac mini writes each day's set from 5 AM. If it's past that, the Mac may be off or asleep.</p>
+      <p>The worker on the Mac mini writes each day's set from 5 AM. If it's past that, the Mac may be off or asleep. You can also generate questions now.</p>
       {due.length > 0 && <p className="mt-3">Due for review: {due.map((d) => names.get(d.topic_id) ?? 'a topic').join(', ')}.</p>}
       <p className="mt-3">
         <Link to={`/history/${lastDay}`} className="font-medium text-accent-text underline-offset-2 hover:underline">

@@ -4,6 +4,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mockBackend } from '../mock/backend'
 import { audioExtension, VOICE_PLACEHOLDER } from './voice'
+import { localDay } from './progress'
 import type {
   Answer,
   AnswerView,
@@ -18,6 +19,8 @@ import type {
   ProfileSource,
   PushSubscriptionInput,
   Question,
+  QuestionRequest,
+  QuestionRequestInput,
   QuestionView,
   Reminder,
   ReminderInput,
@@ -75,6 +78,11 @@ export interface Backend {
   removePushSubscription(endpoint: string): Promise<void>
   /** Sends a test notification to every device the user has turned reminders on for. */
   sendTestPush(): Promise<{ sent: number; failed: number }>
+
+  /** Asks the Mac mini worker for extra questions today. */
+  requestQuestions(input: QuestionRequestInput): Promise<QuestionRequest>
+  /** The newest request for today, to show its progress. */
+  latestQuestionRequest(): Promise<QuestionRequest | null>
 }
 
 export const isMock = import.meta.env.VITE_MOCK === '1'
@@ -110,6 +118,7 @@ const toUser = (u: { id: string; email?: string } | null | undefined): SessionUs
 let topicCache: Promise<Topic[]> | null = null
 
 const PROFILE_COLS = 'user_id, name, level, ready_by, minutes_per_day, resume_path, resume_name, updated_at'
+const REQUEST_COLS = 'id, set_date, count, formats, topic_ids, status, note, created_at, finished_at'
 const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, code, created_at, companies(name)'
 
 type Named = { name: string } | null
@@ -342,6 +351,31 @@ export const realBackend: Backend = {
     const { data, error } = await sb().functions.invoke('send-reminders', { body: { test: true } })
     if (error) throw new Error(error.message)
     return data as { sent: number; failed: number }
+  },
+
+  async requestQuestions(input) {
+    const id = await uid()
+    const { data, error } = await sb()
+      .from('question_requests')
+      .insert({ user_id: id, set_date: localDay(), ...input })
+      .select(REQUEST_COLS)
+      .single()
+    if (error?.code === '23505') throw new Error('Your last request is still being written. Wait for it to finish.')
+    if (error) throw new Error(error.message)
+    return data as QuestionRequest
+  },
+  async latestQuestionRequest() {
+    const id = await uid()
+    return check(
+      await sb()
+        .from('question_requests')
+        .select(REQUEST_COLS)
+        .eq('user_id', id)
+        .eq('set_date', localDay())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ) as QuestionRequest | null
   },
   async getAnswers(questionId) {
     const rows = check(

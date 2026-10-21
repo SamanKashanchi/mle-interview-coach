@@ -2,7 +2,9 @@
 
 Makes a day's set of questions for one user, aimed at their gaps. The Mac mini worker runs it
 every day from 5 AM local time (`worker/prompts/questions.md`); Claude can also run it from the
-project chat when asked ("new questions"). The portal shows the set on Today and keeps it in History.
+project chat when asked ("new questions").
+The Today page's **Generate questions** button asks for extra questions (count, kinds, topics) in
+`question_requests`; the worker fills those with `worker/prompts/requests.md`, which follows this recipe. The portal shows the set on Today and keeps it in History.
 
 ## 1. Read history
 

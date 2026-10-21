@@ -321,9 +321,39 @@ as $$ select count(*)::int from public.answers where status = 'pending' $$;
 revoke all on function public.pending_grades() from public;
 grant execute on function public.pending_grades() to anon, authenticated;
 
+-- Extra questions the owner asks for with "Generate questions" on Today: how many, and optionally
+-- which formats and topics (empty = the coach picks). The worker (worker/prompts/requests.md) marks
+-- it working, writes the questions with questions.request_id set, then marks it done or failed with
+-- a note. One open request per user at a time.
+create table if not exists public.question_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  set_date date not null,
+  count smallint not null check (count between 1 and 10),
+  formats text[] not null default '{}',
+  topic_ids int[] not null default '{}',
+  status text not null default 'pending' check (status in ('pending','working','done','failed')),
+  note text,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz
+);
+create unique index if not exists question_requests_one_open on public.question_requests(user_id) where status in ('pending','working');
+alter table public.question_requests enable row level security;
+drop policy if exists "read own question requests" on public.question_requests;
+create policy "read own question requests" on public.question_requests for select to authenticated
+  using (user_id = (select auth.uid()));
+drop policy if exists "ask for questions" on public.question_requests;
+create policy "ask for questions" on public.question_requests for insert to authenticated
+  with check (user_id = (select auth.uid()) and status = 'pending' and started_at is null and finished_at is null and note is null);
+
+-- Set for questions written for a request; the daily set ignores these when checking "today has a set".
+alter table public.questions add column if not exists request_id uuid references public.question_requests(id) on delete set null;
+
 -- What the Mac mini worker has to do, as counts only (no content), so worker/worker.mjs can
 -- check it with the public key: answers to grade, target company+roles with no finished research,
--- and users with targets but no questions for p_today (the owner's local date).
+-- users with targets but no daily set for p_today (the owner's local date), and open question requests
+-- (a 'working' one over an hour old counts again, in case the worker died).
 create or replace function public.worker_todo(p_today date) returns json
 language sql stable security definer set search_path = public
 as $$
@@ -335,7 +365,9 @@ as $$
                           where rp.company_id = t.company_id and rp.role_id = t.role_id and rp.status = 'done')) x),
     'questions', (select count(*) from profiles p
         where exists (select 1 from targets t where t.user_id = p.user_id)
-          and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = p_today))
+          and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = p_today and q.request_id is null)),
+    'requests', (select count(*) from question_requests
+        where status = 'pending' or (status = 'working' and started_at < now() - interval '1 hour'))
   )
 $$;
 revoke all on function public.worker_todo(date) from public;
