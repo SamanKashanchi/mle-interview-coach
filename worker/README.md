@@ -4,7 +4,7 @@ Runs the coach's AI jobs on your Max plan with Claude Code (no API key):
 
 | Job | When | Prompt |
 |---|---|---|
-| Grade | about a minute after you submit an answer | `prompts/grade.md` → `agents/grading/README.md` |
+| Grade | about a minute after you submit an answer; spoken answers are transcribed first with Whisper, on the Mac | `prompts/grade.md` → `agents/grading/README.md`, `transcribe.mjs` |
 | Research | a few minutes after you save a target whose company + role has no research yet; then it rebuilds your focus topics | `prompts/research.md` → `agents/research/prompt.md`, `agents/blueprint/README.md` |
 | Daily questions | from 5 AM local time, if today has no set yet | `prompts/questions.md` → `agents/questions/README.md` |
 
@@ -28,9 +28,11 @@ The script tells you if something is missing and how to fix it:
 
 1. **Node**: `brew install node`
 2. **Python 3**: `xcode-select --install` (usually already there)
-3. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude` once and sign
+3. **Homebrew** (https://brew.sh): the script uses it to install Whisper and ffmpeg, then downloads
+   the Whisper model (about 550 MB, once) into `worker/models/`.
+4. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude` once and sign
    in with your Max account.
-4. **Supabase sign-in**: run `claude` in this folder, type `/mcp`, pick `supabase`, then
+5. **Supabase sign-in**: run `claude` in this folder, type `/mcp`, pick `supabase`, then
    Authenticate.
 
 Run `./worker/setup.sh` again after each fix. When it says "Worker is running", you're done.

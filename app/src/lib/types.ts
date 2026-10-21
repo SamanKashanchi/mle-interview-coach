@@ -250,6 +250,8 @@ export interface Answer {
   status: 'pending' | 'graded'
   language: CodeLanguage | null // set for code answers
   run_result: RunResult | null // tests at submit time, for code answers
+  audio_path: string | null // voice answers: the recording in the answer-audio bucket
+  transcribed_at: string | null // voice answers: when the worker replaced body with the transcript
   created_at: string
 }
 

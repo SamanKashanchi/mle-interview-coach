@@ -5,6 +5,10 @@
 import type { Backend } from '../lib/db'
 import type { Answer, Company, Profile, Role, SessionUser, Target, TargetInput } from '../lib/types'
 import * as fx from './fixtures'
+import { VOICE_PLACEHOLDER } from '../lib/voice'
+
+// Recordings made in mock mode, playable until the page reloads.
+const mockAudio = new Map<string, string>()
 
 interface State {
   user: SessionUser | null
@@ -251,9 +255,34 @@ export const mockBackend: Backend = {
       status: 'pending',
       language: code?.language ?? null,
       run_result: code?.run_result ?? null,
+      audio_path: null,
+      transcribed_at: null,
       created_at: new Date().toISOString(),
     })
     commit()
+  },
+  async submitVoiceAnswer(questionId, audio, secondsSpent) {
+    await wait()
+    const user = requireUser()
+    const id = crypto.randomUUID()
+    mockAudio.set(id, URL.createObjectURL(audio))
+    state.answers.push({
+      id,
+      user_id: user.id,
+      question_id: questionId,
+      body: VOICE_PLACEHOLDER,
+      seconds_spent: secondsSpent,
+      status: 'pending',
+      language: null,
+      run_result: null,
+      audio_path: id,
+      transcribed_at: null,
+      created_at: new Date().toISOString(),
+    })
+    commit()
+  },
+  async audioUrl(path) {
+    return mockAudio.get(path) ?? null
   },
   async getAnswers(questionId) {
     await wait()

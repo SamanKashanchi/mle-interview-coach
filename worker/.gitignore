@@ -3,3 +3,4 @@ service.log
 node_modules/
 tmp/
 grader.log
+models/

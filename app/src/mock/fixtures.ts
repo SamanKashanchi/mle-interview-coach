@@ -489,6 +489,8 @@ PAST.forEach(([offset, topic_id, format, difficulty, minutes, score, prompt], i)
     status: score === 'pending' ? 'pending' : 'graded',
     language: null,
     run_result: null,
+    audio_path: null,
+    transcribed_at: null,
     created_at: at(19, 10 + (i % 40)),
   })
   if (score === 'pending') return
@@ -546,6 +548,8 @@ order by 1;`,
     status: 'graded',
     language: 'sql',
     run_result: null,
+    audio_path: null,
+    transcribed_at: null,
     created_at: batch,
   },
 ]
@@ -618,6 +622,8 @@ export const answers: Answer[] = [
     status: 'pending',
     language: 'python',
     run_result: null,
+    audio_path: null,
+    transcribed_at: null,
     created_at: batch2,
   },
 ]

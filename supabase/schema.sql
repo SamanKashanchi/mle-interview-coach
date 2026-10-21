@@ -294,6 +294,23 @@ alter table public.questions add column if not exists code jsonb;
 alter table public.answers add column if not exists language text check (language in ('python','sql'));
 alter table public.answers add column if not exists run_result jsonb;
 
+-- Voice answers (non-coding questions). The app uploads the recording to the private
+-- answer-audio bucket under <user id>/<answer id>.<ext> and saves a 30-day signed URL, so the Mac
+-- mini worker can download it without a secret. Until the worker transcribes it, body holds a
+-- placeholder; the worker then replaces body with the transcript and sets transcribed_at.
+alter table public.answers add column if not exists audio_path text;
+alter table public.answers add column if not exists audio_url text;
+alter table public.answers add column if not exists transcribed_at timestamptz;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('answer-audio', 'answer-audio', false, 52428800, array['audio/*'])
+on conflict (id) do nothing;
+
+drop policy if exists "own answer audio" on storage.objects;
+create policy "own answer audio" on storage.objects for all to authenticated
+  using (bucket_id = 'answer-audio' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'answer-audio' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- Mac mini worker ------------------------------------------------------------------------
 
 -- How many answers are waiting for a grade. Superseded by worker_todo() below; kept because

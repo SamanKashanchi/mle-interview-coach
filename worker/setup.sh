@@ -40,6 +40,25 @@ fi
 # PGlite, for checking SQL questions' expected output.
 npm install --prefix worker --no-audit --no-fund --silent
 
+# Whisper (runs on this Mac) and ffmpeg, for transcribing voice answers.
+if ! command -v whisper-cli >/dev/null 2>&1 || ! command -v ffmpeg >/dev/null 2>&1; then
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is missing (needed to install Whisper and ffmpeg for voice answers)."
+    echo "Install it from https://brew.sh, then run this again."
+    exit 1
+  fi
+  echo "Installing Whisper and ffmpeg for voice answers..."
+  brew install whisper-cpp ffmpeg
+fi
+MODEL="worker/models/ggml-large-v3-turbo-q5_0.bin"
+if [[ ! -s "$MODEL" ]]; then
+  echo "Downloading the Whisper model (about 550 MB, once)..."
+  mkdir -p worker/models
+  curl -fL --progress-bar -o "$MODEL.part" \
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin"
+  mv "$MODEL.part" "$MODEL"
+fi
+
 # Supabase MCP for this folder only, limited to the database tools.
 if ! "$CLAUDE" mcp get supabase >/dev/null 2>&1; then
   "$CLAUDE" mcp add --transport http --scope local supabase \
@@ -83,6 +102,6 @@ PLIST
 
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true
 launchctl bootstrap "$DOMAIN" "$PLIST"
-echo "Worker is running. It grades new answers within seconds, researches new targets,"
+echo "Worker is running. It transcribes and grades new answers within seconds, researches new targets,"
 echo "and writes each day's questions from 5 AM."
 echo "Watch it with: tail -f worker/worker.log"

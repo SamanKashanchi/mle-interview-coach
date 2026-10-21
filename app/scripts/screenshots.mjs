@@ -15,9 +15,13 @@ const PAGES = [
   { name: '02-onboarding-about', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you' },
   { name: '03-onboarding-targets', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you', act: onboardingToTargets },
   { name: '04-today', scenario: 'full', path: '/', ready: "text=Today's questions" },
-  { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Submit for grading', act: (p) => p.getByLabel('Your answer').fill('First I would check whether the holdout still exists and is randomized...') },
+  { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Submit for grading', act: async (p) => { await p.click('role=tab[name=Type]'); await p.getByLabel('Your answer').fill('First I would check whether the holdout still exists and is randomized...') } },
   { name: '05b-question-graded', scenario: 'full', path: '/questions/q2', ready: '.monaco-editor', act: async (p) => { await p.click('role=tab[name=/Submissions/]'); await p.click('text=Model answer') } },
   { name: '05c-question-pending', scenario: 'full', path: '/questions/q3', ready: 'text=Submit for grading', act: submitAnswer },
+  { name: '05d-voice-ready', scenario: 'full', path: '/questions/q1', ready: 'text=Speak', act: speak },
+  { name: '05e-voice-recording', scenario: 'full', path: '/questions/q1', ready: 'text=Speak', act: (p) => speak(p).then(() => p.click('role=button[name="Start recording"]')).then(() => p.waitForSelector('text=Recording. Keep the screen on.')) },
+  { name: '05f-voice-recorded', scenario: 'full', path: '/questions/q1', ready: 'text=Speak', act: recordVoice },
+  { name: '05g-voice-pending', scenario: 'full', path: '/questions/q1', ready: 'text=Speak', act: async (p) => { await recordVoice(p); await p.click('text=Submit for grading'); await p.waitForSelector('text=Transcribing, then grading'); await p.click('text=Your answer (spoken)') } },
   { name: '06-plan', scenario: 'full', path: '/plan', ready: 'text=Model evaluation and metrics' },
   { name: '07-targets', scenario: 'full', path: '/targets', ready: 'text=Research ready' },
   { name: '08-research', scenario: 'full', path: '/targets/t-whatnot', ready: 'text=The loop, round by round', act: (p) => p.getByRole('button', { name: /Recommender systems/ }).click() },
@@ -42,7 +46,22 @@ const VIEWPORTS = [
   { name: 'phone', viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true },
 ]
 
+// 05 leaves a typed draft for q1, which makes the composer open on Type.
+async function speak(page) {
+  await page.click('role=tab[name=Speak]')
+  await page.waitForSelector('text=Tap to start')
+}
+
+async function recordVoice(page) {
+  await speak(page)
+  await page.click('role=button[name="Start recording"]')
+  await page.waitForTimeout(2200)
+  await page.click('role=button[name="Stop"]')
+  await page.waitForSelector('text=/Recorded 0:0/')
+}
+
 async function submitAnswer(page) {
+  await page.click('role=tab[name=Type]')
   await page.getByLabel('Your answer').fill('Situation: our lead routing sent good leads to busy designers...')
   await page.click('text=Submit for grading')
   await page.waitForSelector('text=Waiting for a grade')
@@ -62,11 +81,15 @@ async function onboardingToTargets(page) {
   await page.getByLabel('Role').fill('Machine Learning Engineer, Growth')
 }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
+// A fake microphone, so the voice-answer pages can record.
+const browser = await chromium.launch({
+  executablePath: process.env.CHROMIUM_PATH || undefined,
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+})
 let failures = 0
 for (const scheme of ['light', 'dark']) {
   for (const vp of VIEWPORTS) {
-    const ctx = await browser.newContext({ ...vp, colorScheme: scheme, deviceScaleFactor: 1 })
+    const ctx = await browser.newContext({ ...vp, colorScheme: scheme, deviceScaleFactor: 1, permissions: ['microphone'] })
     for (const p of PAGES) {
       const page = await ctx.newPage()
       const errors = []
