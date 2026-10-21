@@ -90,6 +90,9 @@ cat > "$PLIST" <<PLIST
   <dict>
     <key>PATH</key><string>$(dirname "$NODE"):$(dirname "$CLAUDE"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
     <key>CLAUDE_BIN</key><string>$CLAUDE</string>
+    <!-- launchd doesn't inherit the shell's env; Homebrew's Node needs this to find the system
+         root certificates, otherwise every HTTPS fetch fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY. -->
+    <key>NODE_EXTRA_CA_CERTS</key><string>${NODE_EXTRA_CA_CERTS:-/etc/ssl/cert.pem}</string>
     <key>QUESTIONS_HOUR</key><string>${QUESTIONS_HOUR:-5}</string>
   </dict>
   <key>RunAtLoad</key><true/>
