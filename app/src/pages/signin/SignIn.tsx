@@ -7,36 +7,27 @@ import { Logo } from '../../components/Logo'
 
 export default function SignIn() {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  // The Home Screen app can't receive the emailed link (it opens in Safari), so a password works too.
+  const [withPassword, setWithPassword] = useState(false)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [code, setCode] = useState('')
-  const [codeBusy, setCodeBusy] = useState(false)
-  const [codeError, setCodeError] = useState<string | null>(null)
-
-  // The Home Screen app can't receive the emailed link (it opens in Safari), so the email's code works too.
-  async function verify(e: FormEvent) {
-    e.preventDefault()
-    setCodeBusy(true)
-    setCodeError(null)
-    try {
-      await db.verifyEmailCode(email.trim(), code.replace(/\s/g, ''))
-    } catch (err) {
-      const message = (err as Error).message
-      setCodeError(/expired|invalid/i.test(message) ? "That code didn't work. Check it, or send a new email." : message)
-      setCodeBusy(false)
-    }
-  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
     try {
+      if (withPassword) {
+        await db.signInWithPassword(email.trim(), password)
+        return
+      }
       await db.sendMagicLink(email.trim())
       setSent(true)
     } catch (err) {
-      setError((err as Error).message)
+      const message = (err as Error).message
+      setError(/invalid login/i.test(message) ? "That email and password don't match. Set a password on the Profile page first." : message)
     } finally {
       setBusy(false)
     }
@@ -51,28 +42,8 @@ export default function SignIn() {
             <MailCheck aria-hidden className="size-8 text-accent" />
             <h1 className="mt-4 text-xl font-semibold">Check your email</h1>
             <p className="mt-2 text-muted">
-              We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open it on this device, or enter the code from the email.
+              We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open it on this device to continue.
             </p>
-            <form onSubmit={verify} className="mt-5 flex items-end gap-2">
-              <div className="min-w-0 flex-1">
-                <TextField
-                  label="Code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="123456"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-              </div>
-              <Button type="submit" busy={codeBusy} className="min-h-12" disabled={code.replace(/\s/g, '').length < 6}>
-                Sign in
-              </Button>
-            </form>
-            {codeError && (
-              <div className="mt-2">
-                <InlineError>{codeError}</InlineError>
-              </div>
-            )}
             {isMock && (
               <Button className="mt-6 w-full" onClick={() => mockCompleteSignIn(email.trim())}>
                 Open the link (mock mode)
@@ -98,11 +69,30 @@ export default function SignIn() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              {withPassword && (
+                <TextField
+                  label="Password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
               {error && <InlineError>{error}</InlineError>}
               <Button type="submit" busy={busy} className="w-full">
-                Send me a sign-in link
+                {withPassword ? 'Sign in' : 'Send me a sign-in link'}
               </Button>
-              <p className="text-center text-xs text-faint">No password needed. We'll email you a one-time link.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setWithPassword(!withPassword)
+                  setError(null)
+                }}
+                className="block w-full text-center text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
+              >
+                {withPassword ? 'Email me a link instead' : 'Use a password instead'}
+              </button>
             </form>
           </>
         )}

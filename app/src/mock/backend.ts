@@ -105,10 +105,14 @@ export const mockBackend: Backend = {
     if (!email.includes('@')) throw new Error('Enter a valid email address.')
     // Mock mode signs in straight away when the link is "clicked" (see SignIn).
   },
-  async verifyEmailCode(email, code) {
+  async signInWithPassword(email, password) {
     await wait(400)
-    if (!/^\d{6,10}$/.test(code)) throw new Error('Token has expired or is invalid')
+    if (password.length < 6) throw new Error('Invalid login credentials')
     mockCompleteSignIn(email)
+  },
+  async setPassword(password) {
+    await wait(400)
+    if (password.length < 6) throw new Error('Password should be at least 6 characters.')
   },
   async signOut() {
     state = { ...state, user: null }
