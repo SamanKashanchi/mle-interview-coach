@@ -66,7 +66,7 @@ export default function Targets() {
       )}
       {targets.some((t) => t.research?.status !== 'done') && (
         <p className="mt-6 text-sm text-muted">
-          Pending targets get researched the next time Claude runs research from the project chat. Their topics join your plan after that.
+          Pending targets get researched within a few minutes by the worker on the Mac mini. Their topics join your plan after that.
         </p>
       )}
     </>

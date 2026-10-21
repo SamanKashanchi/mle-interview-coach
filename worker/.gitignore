@@ -1,2 +1,5 @@
-grader.log
+worker.log
 service.log
+node_modules/
+tmp/
+grader.log

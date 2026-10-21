@@ -195,7 +195,7 @@ function NoSetYet({ p }: { p: Progress }) {
   const names = new Map(p.stats.map((t) => [t.topic_id, t.name]))
   return (
     <EmptyState icon={<Sparkles className="size-6" />} title="No new set yet today">
-      <p>Say "new questions" in the project chat and Claude writes today's set from your history.</p>
+      <p>The worker on the Mac mini writes each day's set from 5 AM. If it's past that, the Mac may be off or asleep.</p>
       {due.length > 0 && <p className="mt-3">Due for review: {due.map((d) => names.get(d.topic_id) ?? 'a topic').join(', ')}.</p>}
       <p className="mt-3">
         <Link to={`/history/${lastDay}`} className="font-medium text-accent-text underline-offset-2 hover:underline">

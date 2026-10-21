@@ -294,12 +294,32 @@ alter table public.questions add column if not exists code jsonb;
 alter table public.answers add column if not exists language text check (language in ('python','sql'));
 alter table public.answers add column if not exists run_result jsonb;
 
--- Mac mini grader ------------------------------------------------------------------------
+-- Mac mini worker ------------------------------------------------------------------------
 
--- How many answers are waiting for a grade. Only a number, no content, so worker/grader.mjs can
--- check cheaply with the public key. The grading itself goes through the Supabase MCP.
+-- How many answers are waiting for a grade. Superseded by worker_todo() below; kept because
+-- it's live. The work itself goes through the Supabase MCP.
 create or replace function public.pending_grades() returns int
 language sql stable security definer set search_path = public
 as $$ select count(*)::int from public.answers where status = 'pending' $$;
 revoke all on function public.pending_grades() from public;
 grant execute on function public.pending_grades() to anon, authenticated;
+
+-- What the Mac mini worker has to do, as counts only (no content), so worker/worker.mjs can
+-- check it with the public key: answers to grade, target company+roles with no finished research,
+-- and users with targets but no questions for p_today (the owner's local date).
+create or replace function public.worker_todo(p_today date) returns json
+language sql stable security definer set search_path = public
+as $$
+  select json_build_object(
+    'grade', (select count(*) from answers where status = 'pending'),
+    'research', (select count(*) from (
+        select distinct t.company_id, t.role_id from targets t
+        where not exists (select 1 from research_profiles rp
+                          where rp.company_id = t.company_id and rp.role_id = t.role_id and rp.status = 'done')) x),
+    'questions', (select count(*) from profiles p
+        where exists (select 1 from targets t where t.user_id = p.user_id)
+          and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = p_today))
+  )
+$$;
+revoke all on function public.worker_todo(date) from public;
+grant execute on function public.worker_todo(date) to anon, authenticated;

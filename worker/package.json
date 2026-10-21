@@ -1,0 +1,8 @@
+{
+  "name": "mle-coach-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.15"
+  }
+}

@@ -71,8 +71,8 @@ function Pending({ target, status }: { target: TargetView; status?: string }) {
           {running
             ? `Claude is reading up on how ${target.company} interviews for ${target.role}. The rounds, topics and sources will appear here when it's done.`
             : status === 'failed'
-              ? `The last research run for ${target.company} didn't finish. It will be retried the next time research runs.`
-              : `There's no research yet for ${target.company}, ${target.role}. Claude adds it the next time research runs from the project chat.`}
+              ? `The last research run for ${target.company} didn't finish. The worker on the Mac mini tries it again shortly.`
+              : `There's no research yet for ${target.company}, ${target.role}. The worker on the Mac mini picks it up within a few minutes of saving the target.`}
         </p>
         <p className="mt-3">Missing for now: the interview rounds, the topics each one tests, and the sources behind them. Until then this target doesn't shape your plan or questions.</p>
       </EmptyState>

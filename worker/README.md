@@ -1,12 +1,18 @@
-# Mac mini grader
+# Mac mini worker
 
-Grades your answers about a minute after you submit them, using Claude Code on your Max plan
-(no API key).
+Runs the coach's AI jobs on your Max plan with Claude Code (no API key):
 
-How it works: `grader.mjs` runs in the background. Every 10 seconds it asks Supabase how many
-answers are waiting (`pending_grades()`, just a number). When one is, it runs Claude Code headless
-with `grade-prompt.md`, which follows `agents/grading/README.md` and writes the grade through the
-Supabase MCP. The question page picks the grade up by itself.
+| Job | When | Prompt |
+|---|---|---|
+| Grade | about a minute after you submit an answer | `prompts/grade.md` → `agents/grading/README.md` |
+| Research | a few minutes after you save a target whose company + role has no research yet; then it rebuilds your focus topics | `prompts/research.md` → `agents/research/prompt.md`, `agents/blueprint/README.md` |
+| Daily questions | from 5 AM local time, if today has no set yet | `prompts/questions.md` → `agents/questions/README.md` |
+
+How it works: `worker.mjs` runs in the background. Every 10 seconds it asks Supabase what needs
+doing (`worker_todo()`, just three counts). When something does, it runs Claude Code headless with
+that job's prompt, which reads and writes the database through the Supabase MCP. Grading runs
+alongside the other jobs. Questions wait for research, so a new target makes it into that day's set.
+If the Mac was off at 5 AM, the set is written as soon as it's back on.
 
 ## Set up (once)
 
@@ -21,20 +27,24 @@ cd mle-interview-coach
 The script tells you if something is missing and how to fix it:
 
 1. **Node**: `brew install node`
-2. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude` once and sign
+2. **Python 3**: `xcode-select --install` (usually already there)
+3. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude` once and sign
    in with your Max account.
-3. **Supabase sign-in**: run `claude` in this folder, type `/mcp`, pick `supabase`, then
+4. **Supabase sign-in**: run `claude` in this folder, type `/mcp`, pick `supabase`, then
    Authenticate.
 
-Run `./worker/setup.sh` again after each fix. When it says "Grader is running", you're done.
+Run `./worker/setup.sh` again after each fix. When it says "Worker is running", you're done.
 
 ## Day to day
 
-- See what it did: `tail -f worker/grader.log`
+- See what it did: `tail -f worker/worker.log`
 - Update after a `git pull`: `./worker/setup.sh`
 - Stop it: `./worker/setup.sh stop`
+- Change the question time (default 5 AM): `QUESTIONS_HOUR=6 ./worker/setup.sh`
 
 The service starts when you log in, restarts if it crashes, and keeps the Mac awake while it
 runs. Turn on automatic login (System Settings > Users & Groups) so it survives a restart.
 
-If the Mac is off, answers wait as pending; say "grade" in the project chat to grade them by hand.
+If a job makes no progress (signed out, Supabase not connected, usage limits), the worker waits
+longer between tries, up to 30 minutes, instead of burning usage. If the Mac is off, everything
+waits; you can still say "grade", "research now" or "new questions" in the project chat.

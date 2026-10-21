@@ -61,6 +61,6 @@ The portal shows the grade as soon as the row exists, and the question page chec
 
 ## Who runs it
 
-- **The Mac mini grader** (`worker/`): checks `pending_grades()` every 10 seconds and runs this
+- **The Mac mini worker** (`worker/`): checks `worker_todo()` every 10 seconds and runs this
   recipe through Claude Code headless as soon as an answer is waiting. See worker/README.md.
 - **By hand**: say "grade" in the project chat, for example when the Mac mini is off.

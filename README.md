@@ -64,7 +64,7 @@ under Supabase → Authentication → URL Configuration → Redirect URLs, or ma
 3. Put the Project URL and the publishable key in `app/.env.local`. Never use the `service_role` key here.
 4. Once your account exists, turn off "Allow new users to sign up" under Authentication -> Sign In / Providers.
 
-## Grading on the Mac mini
+## The worker on the Mac mini
 
-`worker/` grades answers about a minute after they're submitted, with Claude Code on the owner's
-Max plan. See [worker/README.md](worker/README.md) for the three-step setup.
+`worker/` grades answers about a minute after they're submitted, researches new targets, and
+writes each day's questions from 5 AM, all with Claude Code on the owner's Max plan. See [worker/README.md](worker/README.md) for the three-step setup.
