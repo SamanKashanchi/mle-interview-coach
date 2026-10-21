@@ -219,3 +219,17 @@ export function setsOf(items: HistoryItemView[]) {
 export function averageBetween(activity: Map<Day, DayActivity>, from: Day, to: Day) {
   return mean([...activity.values()].filter((a) => a.day >= from && a.day <= to).flatMap((a) => a.scores))
 }
+
+/**
+ * Questions answered per day from `from` to `to`, counting days with none as 0. Days before the
+ * first answer don't count, so a new user isn't averaged over days they weren't using the app.
+ */
+export function answeredPerDay(activity: Map<Day, DayActivity>, from: Day, to: Day) {
+  const active = [...activity.values()].filter((a) => a.answered > 0)
+  if (!active.length) return null
+  const first = active.reduce((m, a) => (a.day < m ? a.day : m), active[0].day)
+  const start = first > from ? first : from
+  if (start > to) return null
+  const answered = active.filter((a) => a.day >= start && a.day <= to).reduce((s, a) => s + a.answered, 0)
+  return answered / (daysBetween(start, to) + 1)
+}
