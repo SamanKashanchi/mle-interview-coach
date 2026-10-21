@@ -7,11 +7,12 @@ Runs the coach's AI jobs on your Max plan with Claude Code (no API key):
 | Grade | about a minute after you submit an answer; spoken answers are transcribed first with Whisper, on the Mac | `prompts/grade.md` → `agents/grading/README.md`, `transcribe.mjs` |
 | Research | a few minutes after you save a target whose company + role has no research yet; then it rebuilds your focus topics | `prompts/research.md` → `agents/research/prompt.md`, `agents/blueprint/README.md` |
 | Daily questions | from 5 AM local time, if today has no set yet | `prompts/questions.md` → `agents/questions/README.md` |
+| Questions on request | a minute or so after you press **Generate questions** on Today | `prompts/requests.md` → `agents/questions/README.md` |
 
 How it works: `worker.mjs` runs in the background. Every 10 seconds it asks Supabase what needs
-doing (`worker_todo()`, just three counts). When something does, it runs Claude Code headless with
-that job's prompt, which reads and writes the database through the Supabase MCP. Grading runs
-alongside the other jobs. Questions wait for research, so a new target makes it into that day's set.
+doing (`worker_todo()`, just four counts). When something does, it runs Claude Code headless with
+that job's prompt, which reads and writes the database through the Supabase MCP. Grading and
+requested questions run alongside the other jobs. Questions wait for research, so a new target makes it into that day's set.
 If the Mac was off at 5 AM, the set is written as soon as it's back on.
 
 ## Set up (once)

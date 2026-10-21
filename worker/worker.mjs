@@ -3,8 +3,9 @@
 //   grade      answers waiting for a grade               -> prompts/grade.md
 //   research   targets whose company + role has no research yet -> prompts/research.md
 //   questions  no question set for today yet (from QUESTIONS_HOUR, 5 AM local) -> prompts/questions.md
-// Claude Code is signed in with the owner's Max plan, so no API key is used. Grading runs alongside
-// the other jobs; questions wait for research so a new target is in that day's set.
+//   requests   the owner pressed "Generate questions" on Today                -> prompts/requests.md
+// Claude Code is signed in with the owner's Max plan, so no API key is used. Grading and requests run
+// alongside the other jobs; questions wait for research so a new target is in that day's set.
 //
 // Run: node worker/worker.mjs   (worker/setup.sh installs it as a background service)
 
@@ -36,6 +37,8 @@ const JOBS = {
     timeoutMin: 45,
   },
 }
+// Same tools as the daily set: it writes questions the same way.
+JOBS.requests = { tools: JOBS.questions.tools, timeoutMin: 45 }
 const state = Object.fromEntries(Object.keys(JOBS).map((k) => [k, { running: false, retryAt: 0, backoff: 0 }]))
 
 function log(msg) {
@@ -123,6 +126,7 @@ async function main() {
       for (const job of Object.keys(JOBS)) if (counts[job] === 0) state[job].backoff = 0
 
       if (ready('grade')) run('grade', counts.grade, date)
+      if (ready('requests')) run('requests', counts.requests, date)
       if (ready('research') && !state.questions.running) run('research', counts.research, date)
       // Questions wait for research, unless research keeps failing: then today still gets a set.
       else if (

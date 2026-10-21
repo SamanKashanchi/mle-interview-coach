@@ -6,10 +6,12 @@ Use the `execute_sql` tool of the `supabase` MCP server, on project `uwmenprzfrt
 ```sql
 select p.user_id, p.name, p.level, p.minutes_per_day from profiles p
 where exists (select 1 from targets t where t.user_id = p.user_id)
-  and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = '<today>');
+  and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = '<today>'
+                  and q.request_id is null);
 ```
 
-`<today>` is the date given at the top of this prompt. If nothing comes back, print
+`<today>` is the date given at the top of this prompt. Questions the owner asked for with the
+Generate button (`request_id` set) don't count as the day's set. If nothing comes back, print
 `nothing to write` and stop.
 
 ## 2. Write each user's set

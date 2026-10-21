@@ -15,6 +15,8 @@ const PAGES = [
   { name: '02-onboarding-about', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you' },
   { name: '03-onboarding-targets', scenario: 'new', path: '/onboarding', ready: 'text=First, a little about you', act: onboardingToTargets },
   { name: '04-today', scenario: 'full', path: '/', ready: "text=Today's questions" },
+  { name: '04b-generate-dialog', scenario: 'full', path: '/', ready: 'text=Generate questions', act: async (p) => { await p.click('text=Generate questions'); await p.click('role=dialog >> role=button[name="ML system design"]'); await p.locator('role=dialog >> role=group[name=/Topics/] >> button[aria-pressed]').first().click(); await p.click('role=button[name=More]') } },
+  { name: '04c-generate-done', scenario: 'full', path: '/', ready: 'text=Generate questions', act: async (p) => { await p.click('text=Generate questions'); await p.click('role=dialog >> text=Generate 3'); await p.waitForSelector('text=/Writing 3 questions/'); await p.waitForSelector('text=/3 new questions added/', { timeout: 30000 }) } },
   { name: '05-question', scenario: 'full', path: '/questions/q1', ready: 'text=Submit for grading', act: async (p) => { await p.click('role=tab[name=Type]'); await p.getByLabel('Your answer').fill('First I would check whether the holdout still exists and is randomized...') } },
   { name: '05b-question-graded', scenario: 'full', path: '/questions/q2', ready: '.monaco-editor', act: async (p) => { await p.click('role=tab[name=/Submissions/]'); await p.click('text=Model answer') } },
   { name: '05c-question-pending', scenario: 'full', path: '/questions/q3', ready: 'text=Submit for grading', act: submitAnswer },

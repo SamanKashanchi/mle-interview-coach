@@ -316,3 +316,22 @@ export interface PushSubscriptionInput {
   auth: string
   device: string
 }
+
+// ---- Extra questions on demand (question_requests) ----
+
+export type QuestionRequestStatus = 'pending' | 'working' | 'done' | 'failed'
+
+/** "Generate questions" on Today: the Mac mini worker writes them, then marks it done or failed. */
+export interface QuestionRequest {
+  id: string
+  set_date: string
+  count: number
+  formats: QuestionFormat[] // empty: any
+  topic_ids: number[] // empty: the coach picks from your plan
+  status: QuestionRequestStatus
+  note: string | null // why it failed
+  created_at: string
+  finished_at: string | null
+}
+
+export type QuestionRequestInput = Pick<QuestionRequest, 'count' | 'formats' | 'topic_ids'>
