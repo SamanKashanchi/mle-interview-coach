@@ -10,6 +10,23 @@ export default function SignIn() {
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const [codeBusy, setCodeBusy] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+
+  // The Home Screen app can't receive the emailed link (it opens in Safari), so the email's code works too.
+  async function verify(e: FormEvent) {
+    e.preventDefault()
+    setCodeBusy(true)
+    setCodeError(null)
+    try {
+      await db.verifyEmailCode(email.trim(), code.replace(/\s/g, ''))
+    } catch (err) {
+      const message = (err as Error).message
+      setCodeError(/expired|invalid/i.test(message) ? "That code didn't work. Check it, or send a new email." : message)
+      setCodeBusy(false)
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -34,8 +51,28 @@ export default function SignIn() {
             <MailCheck aria-hidden className="size-8 text-accent" />
             <h1 className="mt-4 text-xl font-semibold">Check your email</h1>
             <p className="mt-2 text-muted">
-              We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open it on this device to continue.
+              We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open it on this device, or enter the code from the email.
             </p>
+            <form onSubmit={verify} className="mt-5 flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <TextField
+                  label="Code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </div>
+              <Button type="submit" busy={codeBusy} className="min-h-12" disabled={code.replace(/\s/g, '').length < 6}>
+                Sign in
+              </Button>
+            </form>
+            {codeError && (
+              <div className="mt-2">
+                <InlineError>{codeError}</InlineError>
+              </div>
+            )}
             {isMock && (
               <Button className="mt-6 w-full" onClick={() => mockCompleteSignIn(email.trim())}>
                 Open the link (mock mode)

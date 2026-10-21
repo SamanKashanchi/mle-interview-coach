@@ -7,6 +7,7 @@ import type { Profile } from '../../lib/types'
 import { Button, Card, ErrorState, InlineError, PageHeader, Skeleton, TextField } from '../../components/ui'
 import { LevelSelect, ResumeUpload, TimelineFields } from '../../components/forms'
 import { parseMinutes } from '../../lib/formHelpers'
+import { Reminders } from './Reminders'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -21,6 +22,7 @@ export default function ProfilePage() {
       {header}
       <div className="space-y-6">
         <DetailsForm profile={data ?? null} />
+        <Reminders />
         <Card as="section">
           <h2 className="font-semibold">Resume</h2>
           <p className="mb-4 mt-1 text-sm text-muted">Used for project deep-dive questions and to weigh your plan toward gaps.</p>
