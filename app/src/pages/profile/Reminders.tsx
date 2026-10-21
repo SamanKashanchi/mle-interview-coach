@@ -131,7 +131,7 @@ function ThisDevice({ onFirstOn }: { onFirstOn: () => void }) {
             <p className="font-medium">First, add this app to your Home Screen</p>
             <p className="mt-1 text-muted">
               iPhone only sends notifications to apps on the Home Screen. In Safari, tap <span className="font-medium text-ink">Share</span>, then{' '}
-              <span className="font-medium text-ink">Add to Home Screen</span>. Open MLE Coach from there, sign in, and come back to this page.
+              <span className="font-medium text-ink">Add to Home Screen</span>. Set a password below, then open MLE Coach from the Home Screen, sign in with that password, and come back to this page.
             </p>
           </div>
         </div>

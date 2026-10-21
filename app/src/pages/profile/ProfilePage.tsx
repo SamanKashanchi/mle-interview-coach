@@ -23,6 +23,7 @@ export default function ProfilePage() {
       <div className="space-y-6">
         <DetailsForm profile={data ?? null} />
         <Reminders />
+        <PasswordForm />
         <Card as="section">
           <h2 className="font-semibold">Resume</h2>
           <p className="mb-4 mt-1 text-sm text-muted">Used for project deep-dive questions and to weigh your plan toward gaps.</p>
@@ -83,6 +84,68 @@ function DetailsForm({ profile }: { profile: Profile | null }) {
             </span>
           )}
         </div>
+      </form>
+    </Card>
+  )
+}
+
+// Only needed for the Home Screen app on a phone, which can't open the emailed sign-in link.
+function PasswordForm() {
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (password.length < 6) return setError('Use at least 6 characters.')
+    setBusy(true)
+    setError(null)
+    try {
+      await db.setPassword(password)
+      setPassword('')
+      setSaved(true)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card as="section">
+      <form onSubmit={submit}>
+        <h2 className="font-semibold">Password</h2>
+        <p className="mt-1 text-sm text-muted">
+          Optional. Set one to sign in on the Home Screen app, which can't open the emailed link.
+        </p>
+        <div className="mt-4 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <TextField
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setSaved(false)
+              }}
+            />
+          </div>
+          <Button type="submit" busy={busy} className="min-h-12">
+            Save
+          </Button>
+        </div>
+        {error && (
+          <div className="mt-2">
+            <InlineError>{error}</InlineError>
+          </div>
+        )}
+        {saved && (
+          <p role="status" className="mt-2 inline-flex items-center gap-1.5 text-sm text-accent-text">
+            <Check aria-hidden className="size-4" /> Saved. Use it with "Use a password instead" on the sign-in page.
+          </p>
+        )}
       </form>
     </Card>
   )

@@ -35,8 +35,9 @@ export interface Backend {
   getUser(): Promise<SessionUser | null>
   onAuthChange(cb: (user: SessionUser | null) => void): () => void
   sendMagicLink(email: string): Promise<void>
-  /** Sign in with the code from the email instead of the link (the Home Screen app can't open links). */
-  verifyEmailCode(email: string, code: string): Promise<void>
+  /** Password sign-in, for the Home Screen app, which can't open the emailed link. */
+  signInWithPassword(email: string, password: string): Promise<void>
+  setPassword(password: string): Promise<void>
   signOut(): Promise<void>
 
   getProfile(): Promise<Profile | null>
@@ -147,8 +148,12 @@ export const realBackend: Backend = {
     })
     if (error) throw new Error(error.message)
   },
-  async verifyEmailCode(email, code) {
-    const { error } = await sb().auth.verifyOtp({ email, token: code, type: 'email' })
+  async signInWithPassword(email, password) {
+    const { error } = await sb().auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message)
+  },
+  async setPassword(password) {
+    const { error } = await sb().auth.updateUser({ password })
     if (error) throw new Error(error.message)
   },
   async signOut() {
