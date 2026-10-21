@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BookOpenCheck, ChevronDown, CircleDashed, Search, TrendingDown, TrendingUp } from 'lucide-react'
 import { useProgress, type Progress } from '../../lib/useProgress'
 import { FORMAT_LABEL, formatDate, plainPreview, scoreLabel } from '../../lib/format'
-import { addDays, averageBetween, fmtScore, groupByDay, type DaySummary } from '../../lib/progress'
+import { addDays, answeredPerDay, averageBetween, fmtScore, groupByDay, type DaySummary } from '../../lib/progress'
 import type { HistoryItemView, QuestionFormat } from '../../lib/types'
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton, SkeletonList } from '../../components/ui'
 import { ActivityCalendar, DailyScores, LevelPill, ScorePill, Stat } from '../../components/habit'
@@ -77,8 +77,10 @@ function ProgressTiles({ p }: { p: Progress }) {
   const week = averageBetween(p.activity, addDays(p.today, -6), p.today)
   const prior = averageBetween(p.activity, addDays(p.today, -13), addDays(p.today, -7))
   const delta = week != null && prior != null ? week - prior : null
+  const perDay = answeredPerDay(p.activity, addDays(p.today, -6), p.today)
+  const perDayBefore = answeredPerDay(p.activity, addDays(p.today, -13), addDays(p.today, -7))
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
       <Stat label="Overall" value={overall != null ? fmtScore(overall) : '–'} sub={`${all.length} graded`} />
       <Stat
         label="Last 7 days"
@@ -95,6 +97,13 @@ function ProgressTiles({ p }: { p: Progress }) {
           )
         }
       />
+      <div className="col-span-2 sm:col-span-1">
+        <Stat
+          label="Answered per day"
+          value={perDay != null ? fmtScore(perDay) : '–'}
+          sub={perDayBefore != null ? `last 7 days · ${fmtScore(perDayBefore)} the week before` : 'last 7 days'}
+        />
+      </div>
     </div>
   )
 }
