@@ -4,6 +4,7 @@
 
 import { COHORT_SQL, REPEAT_BUYERS, REPEAT_BUYERS_PROMPT } from './codeSpecs'
 import type {
+  Reminder,
   Answer,
   Company,
   Grade,
@@ -629,3 +630,8 @@ export const answers: Answer[] = [
 ]
 
 export const grades: Grade[] = [...pastGrades, ...todaysGrades]
+
+export const reminders: Reminder[] = [
+  { id: 'r1', at: '13:00:00', timezone: 'America/Los_Angeles', kind: 'coding', days: [1, 2, 3, 4, 5], enabled: true, last_sent_on: null },
+  { id: 'r2', at: '17:30:00', timezone: 'America/Los_Angeles', kind: 'talk', days: [1, 2, 3, 4, 5], enabled: true, last_sent_on: null },
+]

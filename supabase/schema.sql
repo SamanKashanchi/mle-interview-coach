@@ -340,3 +340,109 @@ as $$
 $$;
 revoke all on function public.worker_todo(date) from public;
 grant execute on function public.worker_todo(date) to anon, authenticated;
+
+-- Push reminders --------------------------------------------------------------------------
+-- reminders: when to nudge (local time + timezone, weekdays, what kind of question).
+-- push_subscriptions: one row per device that turned notifications on.
+-- Every 5 minutes pg_cron calls the send-reminders edge function (supabase/functions/), which
+-- calls claim_due_reminders() and sends Web Push. Secrets are in Vault, created once with
+--   select vault.create_secret('<VAPID private key>', 'vapid_private_key');
+--   select vault.create_secret('<random string>', 'reminders_cron_secret');
+create table if not exists public.reminders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  at time not null,
+  timezone text not null,
+  kind text not null default 'any' check (kind in ('coding','talk','any')),
+  days smallint[] not null default '{0,1,2,3,4,5,6}',
+  enabled boolean not null default true,
+  last_sent_on date,
+  created_at timestamptz not null default now()
+);
+create index if not exists reminders_user_idx on public.reminders(user_id);
+alter table public.reminders enable row level security;
+drop policy if exists "own reminders" on public.reminders;
+create policy "own reminders" on public.reminders for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  device text,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "own push subscriptions" on public.push_subscriptions;
+create policy "own push subscriptions" on public.push_subscriptions for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- Reminders that are due now, marked as sent for today, with the message to send. A reminder is
+-- due within the hour after its time, in its own timezone, on its days, once a day. It sends
+-- nothing when every question of its kind for today is already answered. Service role only.
+create or replace function public.claim_due_reminders()
+returns table (user_id uuid, title text, body text, url text)
+language plpgsql security definer set search_path = public
+as $$
+declare
+  r record;
+  local_ts timestamp;
+  n int;
+  mins int;
+  first_id uuid;
+  names text;
+begin
+  for r in select * from reminders where enabled for update skip locked loop
+    local_ts := now() at time zone r.timezone;
+    continue when not (extract(dow from local_ts)::smallint = any (r.days));
+    continue when local_ts::time < r.at or local_ts::time >= r.at + interval '60 minutes';
+    continue when r.last_sent_on = local_ts::date;
+    update reminders set last_sent_on = local_ts::date where id = r.id;
+
+    select count(*), coalesce(sum(q.minutes), 0), (array_agg(q.id order by q.created_at))[1],
+           string_agg(distinct t.name, ', ')
+      into n, mins, first_id, names
+    from questions q join topics t on t.id = q.topic_id
+    where q.user_id = r.user_id and q.set_date = local_ts::date
+      and not exists (select 1 from answers a where a.question_id = q.id)
+      and (r.kind = 'any' or (r.kind = 'coding') = (q.format in ('coding', 'ml_coding')));
+    continue when n = 0;
+
+    user_id := r.user_id;
+    title := case r.kind
+      when 'coding' then 'Time for your coding questions'
+      when 'talk' then 'Time to talk through today''s questions'
+      else 'Today''s questions are waiting' end;
+    body := n || ' waiting: ' || names || ' (~' || mins || ' min).'
+      || case when r.kind = 'talk' then ' Tap to answer out loud.' else '' end;
+    url := '/questions/' || first_id;
+    return next;
+  end loop;
+end
+$$;
+revoke all on function public.claim_due_reminders() from public, anon, authenticated;
+grant execute on function public.claim_due_reminders() to service_role;
+
+create or replace function public.reminder_secrets()
+returns table (vapid_private_key text, cron_secret text)
+language sql stable security definer set search_path = public
+as $$
+  select (select decrypted_secret from vault.decrypted_secrets where name = 'vapid_private_key'),
+         (select decrypted_secret from vault.decrypted_secrets where name = 'reminders_cron_secret')
+$$;
+revoke all on function public.reminder_secrets() from public, anon, authenticated;
+grant execute on function public.reminder_secrets() to service_role;
+
+create extension if not exists pg_net;
+create extension if not exists pg_cron;
+select cron.schedule('send-reminders', '*/5 * * * *', $cron$
+  select net.http_post(
+    url := 'https://uwmenprzfrtlqujmvlyq.supabase.co/functions/v1/send-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'reminders_cron_secret')),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000)
+$cron$);

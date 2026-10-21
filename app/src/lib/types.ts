@@ -295,3 +295,24 @@ export interface HistoryItem {
 export interface HistoryItemView extends HistoryItem {
   topic: Topic
 }
+
+/** A push reminder: at a local time on some weekdays, if questions of its kind are still open. */
+export type ReminderKind = 'coding' | 'talk' | 'any'
+export interface Reminder {
+  id: string
+  at: string // 'HH:MM' or 'HH:MM:SS', local time in `timezone`
+  timezone: string // IANA, e.g. America/Los_Angeles
+  kind: ReminderKind
+  days: number[] // 0 = Sunday
+  enabled: boolean
+  last_sent_on: string | null
+}
+export type ReminderInput = Omit<Reminder, 'id' | 'last_sent_on'> & { id?: string }
+
+/** A browser's push subscription, as PushSubscription.toJSON() gives it. */
+export interface PushSubscriptionInput {
+  endpoint: string
+  p256dh: string
+  auth: string
+  device: string
+}

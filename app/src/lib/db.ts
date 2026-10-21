@@ -16,8 +16,11 @@ import type {
   ProfileInput,
   ProfileRound,
   ProfileSource,
+  PushSubscriptionInput,
   Question,
   QuestionView,
+  Reminder,
+  ReminderInput,
   ResearchDetail,
   ResearchProfile,
   RoundTopic,
@@ -32,6 +35,8 @@ export interface Backend {
   getUser(): Promise<SessionUser | null>
   onAuthChange(cb: (user: SessionUser | null) => void): () => void
   sendMagicLink(email: string): Promise<void>
+  /** Sign in with the code from the email instead of the link (the Home Screen app can't open links). */
+  verifyEmailCode(email: string, code: string): Promise<void>
   signOut(): Promise<void>
 
   getProfile(): Promise<Profile | null>
@@ -60,6 +65,15 @@ export interface Backend {
   audioUrl(path: string): Promise<string | null>
   /** Every attempt at one question, newest first, each with its grade if it has one. */
   getAnswers(questionId: string): Promise<AnswerView[]>
+
+  listReminders(): Promise<Reminder[]>
+  saveReminder(input: ReminderInput): Promise<void>
+  removeReminder(id: string): Promise<void>
+  /** Saves this device's push subscription (or refreshes it if it's already saved). */
+  savePushSubscription(sub: PushSubscriptionInput): Promise<void>
+  removePushSubscription(endpoint: string): Promise<void>
+  /** Sends a test notification to every device the user has turned reminders on for. */
+  sendTestPush(): Promise<{ sent: number; failed: number }>
 }
 
 export const isMock = import.meta.env.VITE_MOCK === '1'
@@ -131,6 +145,10 @@ export const realBackend: Backend = {
       email,
       options: { emailRedirectTo: `${window.location.origin}/` },
     })
+    if (error) throw new Error(error.message)
+  },
+  async verifyEmailCode(email, code) {
+    const { error } = await sb().auth.verifyOtp({ email, token: code, type: 'email' })
     if (error) throw new Error(error.message)
   },
   async signOut() {
@@ -298,6 +316,27 @@ export const realBackend: Backend = {
   async audioUrl(path) {
     const { data } = await sb().storage.from('answer-audio').createSignedUrl(path, 3600)
     return data?.signedUrl ?? null
+  },
+  async listReminders() {
+    return check(await sb().from('reminders').select('id, at, timezone, kind, days, enabled, last_sent_on').order('at')) as Reminder[]
+  },
+  async saveReminder({ id, ...fields }) {
+    if (id) check(await sb().from('reminders').update(fields).eq('id', id))
+    else check(await sb().from('reminders').insert(fields))
+  },
+  async removeReminder(id) {
+    check(await sb().from('reminders').delete().eq('id', id))
+  },
+  async savePushSubscription(sub) {
+    check(await sb().from('push_subscriptions').upsert({ ...sub, user_id: await uid() }, { onConflict: 'endpoint' }))
+  },
+  async removePushSubscription(endpoint) {
+    check(await sb().from('push_subscriptions').delete().eq('endpoint', endpoint))
+  },
+  async sendTestPush() {
+    const { data, error } = await sb().functions.invoke('send-reminders', { body: { test: true } })
+    if (error) throw new Error(error.message)
+    return data as { sent: number; failed: number }
   },
   async getAnswers(questionId) {
     const rows = check(

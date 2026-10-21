@@ -3,7 +3,7 @@
 // nothing filled in yet) or ?mock=signedout.
 
 import type { Backend } from '../lib/db'
-import type { Answer, Company, Profile, Role, SessionUser, Target, TargetInput } from '../lib/types'
+import type { Answer, Company, Profile, Reminder, Role, SessionUser, Target, TargetInput } from '../lib/types'
 import * as fx from './fixtures'
 import { VOICE_PLACEHOLDER } from '../lib/voice'
 
@@ -17,15 +17,16 @@ interface State {
   companies: Company[]
   roles: Role[]
   answers: Answer[]
+  reminders: Reminder[]
 }
 
 const KEY = 'mock-state'
 
 function initial(scenario: string): State {
-  const base = { companies: fx.companies, roles: fx.roles, answers: [] as Answer[] }
+  const base = { companies: fx.companies, roles: fx.roles, answers: [] as Answer[], reminders: [] as Reminder[] }
   if (scenario === 'signedout') return { ...base, user: null, profile: null, targets: [] }
   if (scenario === 'new') return { ...base, user: fx.MOCK_USER, profile: null, targets: [] }
-  return { ...base, user: fx.MOCK_USER, profile: fx.profile, targets: fx.targets, answers: fx.answers }
+  return { ...base, user: fx.MOCK_USER, profile: fx.profile, targets: fx.targets, answers: fx.answers, reminders: fx.reminders }
 }
 
 function load(): State {
@@ -39,7 +40,7 @@ function load(): State {
     const raw = sessionStorage.getItem(KEY)
     if (raw) {
       const saved = JSON.parse(raw) as Partial<State>
-      return { ...initial('full'), ...saved, answers: saved.answers ?? [] }
+      return { ...initial('full'), ...saved, answers: saved.answers ?? [], reminders: saved.reminders ?? [] }
     }
   } catch {
     // Storage unavailable: fall through to the default scenario.
@@ -103,6 +104,11 @@ export const mockBackend: Backend = {
     await wait(400)
     if (!email.includes('@')) throw new Error('Enter a valid email address.')
     // Mock mode signs in straight away when the link is "clicked" (see SignIn).
+  },
+  async verifyEmailCode(email, code) {
+    await wait(400)
+    if (!/^\d{6,10}$/.test(code)) throw new Error('Token has expired or is invalid')
+    mockCompleteSignIn(email)
   },
   async signOut() {
     state = { ...state, user: null }
@@ -283,6 +289,31 @@ export const mockBackend: Backend = {
   },
   async audioUrl(path) {
     return mockAudio.get(path) ?? null
+  },
+  async listReminders() {
+    await wait()
+    return [...state.reminders].sort((a, b) => a.at.localeCompare(b.at))
+  },
+  async saveReminder({ id, ...fields }) {
+    await wait()
+    if (id) state.reminders = state.reminders.map((r) => (r.id === id ? { ...r, ...fields } : r))
+    else state.reminders.push({ ...fields, id: crypto.randomUUID(), last_sent_on: null })
+    commit()
+  },
+  async removeReminder(id) {
+    await wait()
+    state.reminders = state.reminders.filter((r) => r.id !== id)
+    commit()
+  },
+  async savePushSubscription() {
+    await wait()
+  },
+  async removePushSubscription() {
+    await wait()
+  },
+  async sendTestPush() {
+    await wait()
+    return { sent: 1, failed: 0 }
   },
   async getAnswers(questionId) {
     await wait()
