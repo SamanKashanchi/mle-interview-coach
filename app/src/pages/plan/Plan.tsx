@@ -7,7 +7,7 @@ import { CATEGORIES, CATEGORY_LABEL, formatDate, pct } from '../../lib/format'
 import type { Category, FocusTopicView } from '../../lib/types'
 import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, SkeletonList } from '../../components/ui'
 import { cx } from '../../lib/cx'
-import { fmtScore, LEVEL_LABEL, LEVELS, topicStats, type Level, type TopicStat } from '../../lib/progress'
+import { fmtScore, topicStats, type TopicStat } from '../../lib/progress'
 import { LevelPill } from '../../components/habit'
 
 const TOP = 10
@@ -48,7 +48,6 @@ export default function Plan() {
   return (
     <>
       {header}
-      <SkillGrid stats={[...stats.values()]} />
       <div role="group" aria-label="Filter by category" className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1">
         <FilterChip active={category === 'all'} onClick={() => setCategory('all')}>All</FilterChip>
         {present.map((c) => (
@@ -89,26 +88,6 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     >
       {children}
     </button>
-  )
-}
-
-/** How many topics sit at each mastery level, weighted by how much of the plan they carry. */
-function SkillGrid({ stats }: { stats: TopicStat[] }) {
-  const by = (l: Level) => stats.filter((t) => t.level === l)
-  return (
-    <section aria-label="Mastery by level" className="mb-6 grid grid-cols-5 gap-1.5">
-      {LEVELS.map((l, i) => {
-        const list = by(l)
-        const share = list.reduce((s, t) => s + t.weight, 0)
-        return (
-          <div key={l} className={cx('rounded-xl border px-2 py-3 text-center', i === 0 ? 'border-dashed border-line' : 'border-line bg-surface')}>
-            <p className="text-xl font-semibold tabular-nums">{list.length}</p>
-            <p className="mt-0.5 text-[11px] font-medium leading-tight text-muted">{LEVEL_LABEL[l]}</p>
-            <p className="mt-1 text-[11px] text-faint">{pct(share)} of plan</p>
-          </div>
-        )
-      })}
-    </section>
   )
 }
 
