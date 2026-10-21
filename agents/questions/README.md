@@ -1,6 +1,7 @@
 # Question generation
 
-Makes a day's set of questions for one user, aimed at their gaps. Claude runs this from the
+Makes a day's set of questions for one user, aimed at their gaps. The Mac mini worker runs it
+every day from 5 AM local time (`worker/prompts/questions.md`); Claude can also run it from the
 project chat when asked ("new questions"). The portal shows the set on Today and keeps it in History.
 
 ## 1. Read history

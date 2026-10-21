@@ -13,5 +13,6 @@ Output: one `focus_topics` row per user per topic (all 42 topics).
   experience in. Each factor comes with a short reason.
 - `reason`: which research rounds and which posting/resume signals produced the weight.
 
-Recompute when targets, postings, the resume or research change. For now Claude runs it
-from the project thread on request.
+Recompute when targets, postings, the resume or research change. The Mac mini worker
+(`worker/prompts/research.md`) recomputes it after researching a new target, keeping the current
+resume factors since it can't read the resume file. Claude can also run it from the project chat.
