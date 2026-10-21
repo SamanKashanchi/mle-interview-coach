@@ -1,13 +1,16 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { clock, useElapsed } from '../../lib/useElapsed'
 import { usePollWhile } from '../../lib/usePollWhile'
-import { Check, ChevronDown, CircleDashed, Clock, Minus, RotateCcw, Send, X } from 'lucide-react'
+import { Check, ChevronDown, CircleDashed, Clock, Keyboard, Mic, Minus, RotateCcw, Send, X } from 'lucide-react'
 import { db } from '../../lib/db'
 import { useAsync } from '../../lib/useAsync'
 import { formatDate, scoreLabel } from '../../lib/format'
 import type { AnswerView, Grade, QuestionView, Verdict } from '../../lib/types'
 import { Button, Card, ErrorState, InlineError, Skeleton } from '../../components/ui'
 import { cx } from '../../lib/cx'
+import { awaitingTranscript, isVoice } from '../../lib/voice'
+import { VoiceRecorder } from '../../components/VoiceRecorder'
+import { canRecord } from '../../components/canRecord'
 
 const CODE_FORMATS = new Set(['coding', 'ml_coding'])
 
@@ -44,9 +47,14 @@ export function AnswerPanel({ q }: { q: QuestionView }) {
 
   return (
     <>
-      {latest.grade ? <Feedback grade={latest.grade} code={code} /> : <Pending />}
-      <Details summary="Your answer" meta={answerMeta(latest)}>
-        <pre className={cx('whitespace-pre-wrap break-words text-sm', code ? 'font-mono' : 'font-sans')}>{latest.body}</pre>
+      {latest.grade ? <Feedback grade={latest.grade} code={code} /> : <Pending transcribing={awaitingTranscript(latest)} />}
+      <Details summary={isVoice(latest) ? 'Your answer (spoken)' : 'Your answer'} meta={answerMeta(latest)}>
+        {isVoice(latest) && <Playback path={latest.audio_path!} />}
+        {awaitingTranscript(latest) ? (
+          <p className="text-sm text-muted">The transcript shows up here once the Mac mini has transcribed the recording.</p>
+        ) : (
+          <pre className={cx('whitespace-pre-wrap break-words text-sm', code ? 'font-mono' : 'font-sans')}>{latest.body}</pre>
+        )}
       </Details>
       {!latest.grade && <Rubric items={q.rubric} />}
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -94,6 +102,8 @@ function Composer({
   onSubmitted: () => void
 }) {
   const id = useId()
+  const [mode, setMode] = useState<'voice' | 'text'>(() => (!code && canRecord() && !readDraft(q.id) ? 'voice' : 'text'))
+  const [audio, setAudio] = useState<Blob | null>(null)
   const [body, setBody] = useState(() => readDraft(q.id))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,12 +113,17 @@ function Composer({
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!body.trim()) return setError('Write an answer first.')
+    const voice = mode === 'voice'
+    if (voice && !audio) return setError('Record your answer first.')
+    if (!voice && !body.trim()) return setError('Write an answer first.')
     setBusy(true)
     setError(null)
     try {
-      await db.submitAnswer(q.id, body, elapsed)
-      writeDraft(q.id, '')
+      if (voice) await db.submitVoiceAnswer(q.id, audio!, elapsed)
+      else {
+        await db.submitAnswer(q.id, body, elapsed)
+        writeDraft(q.id, '')
+      }
       onSubmitted()
     } catch (err) {
       setError((err as Error).message)
@@ -128,25 +143,41 @@ function Composer({
           {clock(elapsed)} <span className="text-faint">of {q.minutes}:00</span>
         </span>
       </div>
-      <textarea
-        id={id}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        rows={code ? 14 : 10}
-        spellCheck={!code}
-        placeholder={
-          code
-            ? 'Write your code. Add a line or two on your approach and its complexity.'
-            : 'Answer as you would out loud: structure first, then the details and trade-offs.'
-        }
-        className={cx(
-          'mt-3 w-full resize-y rounded-lg border border-line bg-bg px-3 py-2.5 placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25',
-          code && 'font-mono text-sm',
-        )}
-      />
+      {!code && canRecord() && (
+        <ModeSwitch
+          mode={mode}
+          disabled={busy}
+          onChange={(m) => {
+            setMode(m)
+            setError(null)
+          }}
+        />
+      )}
+      {mode === 'voice' ? (
+        <VoiceRecorder onChange={setAudio} disabled={busy} />
+      ) : (
+        <textarea
+          id={id}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={code ? 14 : 10}
+          spellCheck={!code}
+          placeholder={
+            code
+              ? 'Write your code. Add a line or two on your approach and its complexity.'
+              : 'Answer as you would out loud: structure first, then the details and trade-offs.'
+          }
+          className={cx(
+            'mt-3 w-full resize-y rounded-lg border border-line bg-bg px-3 py-2.5 placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25',
+            code && 'font-mono text-sm',
+          )}
+        />
+      )}
       {error && <div className="mt-2"><InlineError>{error}</InlineError></div>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted">Drafts save on this device as you type.</p>
+        <p className="text-xs text-muted">
+          {mode === 'voice' ? 'The Mac mini transcribes your recording, then grades it.' : 'Drafts save on this device as you type.'}
+        </p>
         <div className="flex gap-2">
           {onCancel && (
             <Button variant="ghost" onClick={onCancel}>
@@ -162,9 +193,36 @@ function Composer({
   )
 }
 
+function ModeSwitch({ mode, disabled, onChange }: { mode: 'voice' | 'text'; disabled: boolean; onChange: (m: 'voice' | 'text') => void }) {
+  const modes = [
+    { m: 'voice', label: 'Speak', Icon: Mic },
+    { m: 'text', label: 'Type', Icon: Keyboard },
+  ] as const
+  return (
+    <div role="tablist" aria-label="Answer by" className="mt-3 inline-flex rounded-lg border border-line bg-bg p-0.5 text-sm">
+      {modes.map(({ m, label, Icon }) => (
+        <button
+          key={m}
+          type="button"
+          role="tab"
+          aria-selected={mode === m}
+          disabled={disabled}
+          onClick={() => onChange(m)}
+          className={cx(
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors',
+            mode === m ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink',
+          )}
+        >
+          <Icon aria-hidden className="size-4" /> {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ---- After submitting ----
 
-export function Pending() {
+export function Pending({ transcribing }: { transcribing?: boolean }) {
   return (
     <Card className="mt-4">
       <div className="flex gap-4">
@@ -172,10 +230,12 @@ export function Pending() {
           <CircleDashed className="size-5" />
         </span>
         <div>
-          <h2 className="font-semibold">Submitted. Waiting for a grade.</h2>
+          <h2 className="font-semibold">{transcribing ? 'Submitted. Transcribing, then grading.' : 'Submitted. Waiting for a grade.'}</h2>
           <p className="mt-1 text-muted">
-            The grader usually picks it up within a minute or two. Your score, feedback on each point and a model answer will
-            show up here by themselves.
+            {transcribing
+              ? 'The Mac mini turns your recording into text first, which adds a minute or two. '
+              : 'The grader usually picks it up within a minute or two. '}
+            Your score, feedback on each point and a model answer will show up here by themselves.
           </p>
         </div>
       </div>
@@ -259,6 +319,12 @@ function List({ title, items, numbered }: { title: string; items: string[]; numb
       </Tag>
     </div>
   )
+}
+
+function Playback({ path }: { path: string }) {
+  const { data: url } = useAsync(() => db.audioUrl(path), [path])
+  if (!url) return null
+  return <audio controls preload="none" src={url} className="mb-3 w-full" />
 }
 
 function EarlierAttempts({ attempts }: { attempts: AnswerView[] }) {

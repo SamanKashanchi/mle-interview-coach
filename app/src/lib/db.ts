@@ -3,6 +3,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mockBackend } from '../mock/backend'
+import { audioExtension, VOICE_PLACEHOLDER } from './voice'
 import type {
   Answer,
   AnswerView,
@@ -53,6 +54,10 @@ export interface Backend {
   getResearch(companyId: string, roleId: string): Promise<ResearchDetail | null>
 
   submitAnswer(questionId: string, body: string, secondsSpent: number | null, code?: Pick<Answer, 'language' | 'run_result'>): Promise<void>
+  /** A spoken answer: uploads the recording; the Mac mini worker transcribes it, then grades it. */
+  submitVoiceAnswer(questionId: string, audio: Blob, secondsSpent: number | null): Promise<void>
+  /** A short-lived link to play back a voice answer. */
+  audioUrl(path: string): Promise<string | null>
   /** Every attempt at one question, newest first, each with its grade if it has one. */
   getAnswers(questionId: string): Promise<AnswerView[]>
 }
@@ -268,11 +273,37 @@ export const realBackend: Backend = {
     const id = await uid()
     check(await sb().from('answers').insert({ user_id: id, question_id: questionId, body, seconds_spent: secondsSpent, ...code }))
   },
+  async submitVoiceAnswer(questionId, audio, secondsSpent) {
+    const user = await uid()
+    const answerId = crypto.randomUUID()
+    const path = `${user}/${answerId}.${audioExtension(audio.type)}`
+    const bucket = sb().storage.from('answer-audio')
+    const { error } = await bucket.upload(path, audio, { contentType: audio.type || 'audio/mp4' })
+    if (error) throw new Error(`Couldn't upload the recording: ${error.message}`)
+    // The worker downloads it with this link, so it needs no secret. 30 days covers a Mac that's off for a while.
+    const signed = await bucket.createSignedUrl(path, 30 * 24 * 3600)
+    if (signed.error) throw new Error(signed.error.message)
+    check(
+      await sb().from('answers').insert({
+        id: answerId,
+        user_id: user,
+        question_id: questionId,
+        body: VOICE_PLACEHOLDER,
+        seconds_spent: secondsSpent,
+        audio_path: path,
+        audio_url: signed.data.signedUrl,
+      }),
+    )
+  },
+  async audioUrl(path) {
+    const { data } = await sb().storage.from('answer-audio').createSignedUrl(path, 3600)
+    return data?.signedUrl ?? null
+  },
   async getAnswers(questionId) {
     const rows = check(
       await sb()
         .from('answers')
-        .select('id, user_id, question_id, body, seconds_spent, status, language, run_result, created_at, grades(*)')
+        .select('id, user_id, question_id, body, seconds_spent, status, language, run_result, audio_path, transcribed_at, created_at, grades(*)')
         .eq('question_id', questionId)
         .order('created_at', { ascending: false }),
     ) as unknown as (Omit<AnswerView, 'grade'> & { grades: Grade | Grade[] | null })[]

@@ -27,7 +27,8 @@ const LOG = join(HERE, 'worker.log')
 
 const DB = 'mcp__supabase__execute_sql'
 const JOBS = {
-  grade: { tools: ['Read', DB], timeoutMin: 15 },
+  // transcribe.mjs: Whisper on this Mac, for voice answers.
+  grade: { tools: ['Read', 'Bash(node worker/transcribe.mjs:*)', DB], timeoutMin: 20 },
   research: { tools: ['Read', 'WebSearch', 'WebFetch', DB], timeoutMin: 45 },
   questions: {
     // Write + python3 + run-sql.mjs: to check expected outputs by running a reference solution.
