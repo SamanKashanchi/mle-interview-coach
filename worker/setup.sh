@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sets up the coach's worker on this Mac (grading, research, daily questions): connects Claude Code
+# Sets up the coach's worker on this Mac (grading, research, daily questions, spoken questions): connects Claude Code
 # to Supabase and installs a background service that starts at login, restarts if it crashes and
 # keeps the Mac awake.
 #   ./worker/setup.sh          install or update
@@ -59,6 +59,30 @@ if [[ ! -s "$MODEL" ]]; then
   mv "$MODEL.part" "$MODEL"
 fi
 
+# Kokoro (runs on this Mac) for the natural voice behind Read aloud. It needs Python 3.10 to 3.13.
+if [[ ! -x worker/tts/venv/bin/python ]]; then
+  PY=""
+  for v in 3.12 3.13 3.11 3.10; do
+    if command -v "python$v" >/dev/null 2>&1; then PY="python$v"; break; fi
+  done
+  if [[ -z "$PY" ]]; then
+    echo "Installing Python 3.12 for the voice..."
+    brew install python@3.12
+    PY="$(brew --prefix)/bin/python3.12"
+  fi
+  "$PY" -m venv worker/tts/venv
+fi
+worker/tts/venv/bin/pip install --quiet --disable-pip-version-check kokoro-onnx soundfile
+KOKORO="https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+for f in kokoro-v1.0.onnx voices-v1.0.bin; do
+  if [[ ! -s "worker/models/$f" ]]; then
+    echo "Downloading the voice model $f (about 350 MB in all, once)..."
+    mkdir -p worker/models
+    curl -fL --progress-bar -o "worker/models/$f.part" "$KOKORO/$f"
+    mv "worker/models/$f.part" "worker/models/$f"
+  fi
+done
+
 # Supabase MCP for this folder only, limited to the database tools.
 if ! "$CLAUDE" mcp get supabase >/dev/null 2>&1; then
   "$CLAUDE" mcp add --transport http --scope local supabase \
@@ -71,6 +95,22 @@ if ! "$CLAUDE" mcp list 2>/dev/null | grep -q "^supabase:.*Connected"; then
   echo "  2. Type /mcp, pick supabase, then Authenticate. Approve it in the browser."
   echo "  3. Type /exit and run ./worker/setup.sh again."
   exit 1
+fi
+
+# The worker's key for uploading spoken questions (the question-audio function). Made here, kept in
+# worker/.worker-token; only its sha256 goes to Supabase, registered once through Claude Code.
+AUDIO_FN="https://uwmenprzfrtlqujmvlyq.supabase.co/functions/v1/question-audio"
+key_works() { [[ -s worker/.worker-token ]] && curl -fsS -o /dev/null -H "x-worker-token: $(cat worker/.worker-token)" "$AUDIO_FN" 2>/dev/null; }
+if ! key_works; then
+  [[ -s worker/.worker-token ]] || (umask 077 && openssl rand -hex 32 > worker/.worker-token)
+  HASH="$(printf %s "$(cat worker/.worker-token)" | shasum -a 256 | cut -d' ' -f1)"
+  echo "Registering this Mac's key for spoken questions..."
+  "$CLAUDE" -p "Run exactly this SQL with the Supabase execute_sql tool and nothing else, then reply done: insert into public.worker_tokens (hash) values ('$HASH') on conflict do nothing;" \
+    --allowedTools mcp__supabase__execute_sql >/dev/null || true
+  if ! key_works; then
+    echo "Couldn't register the key, so questions won't get the natural voice yet (Read aloud uses the"
+    echo "phone's voice meanwhile). Everything else still works. Run ./worker/setup.sh again later."
+  fi
 fi
 
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -94,6 +134,7 @@ cat > "$PLIST" <<PLIST
          root certificates, otherwise every HTTPS fetch fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY. -->
     <key>NODE_EXTRA_CA_CERTS</key><string>${NODE_EXTRA_CA_CERTS:-/etc/ssl/cert.pem}</string>
     <key>QUESTIONS_HOUR</key><string>${QUESTIONS_HOUR:-5}</string>
+    <key>TTS_VOICE</key><string>${TTS_VOICE:-bf_emma}</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -106,5 +147,5 @@ PLIST
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true
 launchctl bootstrap "$DOMAIN" "$PLIST"
 echo "Worker is running. It transcribes and grades new answers within seconds, researches new targets,"
-echo "and writes each day's questions from 5 AM."
+echo "writes each day's questions from 5 AM, and records each new question in a natural voice."
 echo "Watch it with: tail -f worker/worker.log"

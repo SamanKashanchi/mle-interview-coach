@@ -4,3 +4,5 @@ node_modules/
 tmp/
 grader.log
 models/
+tts/venv/
+.worker-token

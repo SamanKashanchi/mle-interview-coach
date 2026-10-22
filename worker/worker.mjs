@@ -4,6 +4,7 @@
 //   research   targets whose company + role has no research yet -> prompts/research.md
 //   questions  no question set for today yet (from QUESTIONS_HOUR, 5 AM local) -> prompts/questions.md
 //   requests   the owner pressed "Generate questions" on Today                -> prompts/requests.md
+//   audio      new questions without a spoken version: Kokoro on this Mac, no Claude -> tts.mjs
 // Claude Code is signed in with the owner's Max plan, so no API key is used. Grading and requests run
 // alongside the other jobs; questions wait for research so a new target is in that day's set.
 //
@@ -13,6 +14,7 @@ import { spawn } from 'node:child_process'
 import { appendFileSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { speakNew } from './tts.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -39,7 +41,7 @@ const JOBS = {
 }
 // Same tools as the daily set: it writes questions the same way.
 JOBS.requests = { tools: JOBS.questions.tools, timeoutMin: 45 }
-const state = Object.fromEntries(Object.keys(JOBS).map((k) => [k, { running: false, retryAt: 0, backoff: 0 }]))
+const state = Object.fromEntries([...Object.keys(JOBS), 'audio'].map((k) => [k, { running: false, retryAt: 0, backoff: 0 }]))
 
 function log(msg) {
   const line = `${new Date().toISOString()} ${msg}`
@@ -114,6 +116,23 @@ async function run(job, before, today) {
   }
 }
 
+// Not a Claude job: speaks questions locally, one at a time, and backs off when none went up.
+async function speak(before) {
+  const s = state.audio
+  s.running = true
+  try {
+    const done = await speakNew(SUPABASE_URL, log)
+    s.backoff = done ? 0 : Math.min((s.backoff || 60_000) * 2, 30 * 60_000)
+    if (s.backoff) log(`audio: ${before} without audio, none spoken, retrying in ${s.backoff / 60_000} min`)
+  } catch (e) {
+    s.backoff = Math.min((s.backoff || 60_000) * 2, 30 * 60_000)
+    log(`audio: ${e.message}`)
+  } finally {
+    s.retryAt = Date.now() + s.backoff
+    s.running = false
+  }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
@@ -123,10 +142,11 @@ async function main() {
       const { date, hour } = localNow()
       const counts = await todo(date)
       const ready = (job) => counts[job] > 0 && !state[job].running && Date.now() >= state[job].retryAt
-      for (const job of Object.keys(JOBS)) if (counts[job] === 0) state[job].backoff = 0
+      for (const job of Object.keys(state)) if (counts[job] === 0) state[job].backoff = 0
 
       if (ready('grade')) run('grade', counts.grade, date)
       if (ready('requests')) run('requests', counts.requests, date)
+      if (ready('audio')) speak(counts.audio)
       if (ready('research') && !state.questions.running) run('research', counts.research, date)
       // Questions wait for research, unless research keeps failing: then today still gets a set.
       else if (

@@ -8,6 +8,7 @@ Runs the coach's AI jobs on your Max plan with Claude Code (no API key):
 | Research | a few minutes after you save a target whose company + role has no research yet; then it rebuilds your focus topics | `prompts/research.md` → `agents/research/prompt.md`, `agents/blueprint/README.md` |
 | Daily questions | from 5 AM local time, if today has no set yet | `prompts/questions.md` → `agents/questions/README.md` |
 | Questions on request | a minute or so after you press **Generate questions** on Today | `prompts/requests.md` → `agents/questions/README.md` |
+| Spoken questions | a few seconds after a question is written; no Claude, Kokoro runs on the Mac | `tts.mjs`, `tts/speak.py` |
 
 How it works: `worker.mjs` runs in the background. Every 10 seconds it asks Supabase what needs
 doing (`worker_todo()`, just four counts). When something does, it runs Claude Code headless with
@@ -30,7 +31,8 @@ The script tells you if something is missing and how to fix it:
 1. **Node**: `brew install node`
 2. **Python 3**: `xcode-select --install` (usually already there)
 3. **Homebrew** (https://brew.sh): the script uses it to install Whisper and ffmpeg, then downloads
-   the Whisper model (about 550 MB, once) into `worker/models/`.
+   the Whisper model (about 550 MB, once) into `worker/models/`. It also installs Kokoro, the voice
+   for Read aloud (about 350 MB, once), and registers this Mac's upload key in `worker/.worker-token`.
 4. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude` once and sign
    in with your Max account.
 5. **Supabase sign-in**: run `claude` in this folder, type `/mcp`, pick `supabase`, then
@@ -44,6 +46,8 @@ Run `./worker/setup.sh` again after each fix. When it says "Worker is running", 
 - Update after a `git pull`: `./worker/setup.sh`
 - Stop it: `./worker/setup.sh stop`
 - Change the question time (default 5 AM): `QUESTIONS_HOUR=6 ./worker/setup.sh`
+- Change the Read aloud voice (default `bf_emma`, British female): `TTS_VOICE=bf_isabella ./worker/setup.sh`.
+  Voices starting `bf_`/`bm_` are British, `af_`/`am_` American. New questions use the new voice.
 
 The service starts when you log in, restarts if it crashes, and keeps the Mac awake while it
 runs. Turn on automatic login (System Settings > Users & Groups) so it survives a restart.
