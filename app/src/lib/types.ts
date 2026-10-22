@@ -136,6 +136,7 @@ export interface Question {
   set_date: string // yyyy-mm-dd, the day this question belongs to
   reason: string | null // why the generator picked it
   code: CodeSpec | null // runnable starter code and tests, for coding questions
+  audio_path?: string | null // spoken version (Kokoro on the Mac mini), in the question-audio bucket
   created_at: string
 }
 

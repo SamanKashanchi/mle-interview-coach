@@ -75,7 +75,7 @@ export default function QuestionPage() {
       </p>
       {stat && <LevelPill level={stat.level} className="mt-2" />}
       <QuestionMeta q={q} className="mt-4" />
-      <ReadAloud key={q.id} title={q.topic.name} prompt={q.prompt} className="mt-4" />
+      <ReadAloud key={q.id} title={q.topic.name} prompt={q.prompt} audioPath={q.audio_path} className="mt-4" />
       {q.reason && (
         <p className="mt-4 flex gap-2 text-sm text-muted">
           <Lightbulb aria-hidden className="mt-0.5 size-4 shrink-0 text-faint" />

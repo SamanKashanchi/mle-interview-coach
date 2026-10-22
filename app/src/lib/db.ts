@@ -67,6 +67,8 @@ export interface Backend {
   submitVoiceAnswer(questionId: string, audio: Blob, secondsSpent: number | null): Promise<void>
   /** A short-lived link to play back a voice answer. */
   audioUrl(path: string): Promise<string | null>
+  /** A short-lived link to the question's spoken version (questions.audio_path). */
+  questionAudioUrl(path: string): Promise<string | null>
   /** Every attempt at one question, newest first, each with its grade if it has one. */
   getAnswers(questionId: string): Promise<AnswerView[]>
 
@@ -119,7 +121,7 @@ let topicCache: Promise<Topic[]> | null = null
 
 const PROFILE_COLS = 'user_id, name, level, ready_by, minutes_per_day, resume_path, resume_name, updated_at'
 const REQUEST_COLS = 'id, set_date, count, formats, topic_ids, status, note, created_at, finished_at'
-const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, code, created_at, companies(name)'
+const QUESTION_COLS = 'id, user_id, topic_id, company_id, format, difficulty, minutes, prompt, rubric, set_date, reason, code, audio_path, created_at, companies(name)'
 
 type Named = { name: string } | null
 type QuestionRow = Question & { companies: Named }
@@ -329,6 +331,10 @@ export const realBackend: Backend = {
   },
   async audioUrl(path) {
     const { data } = await sb().storage.from('answer-audio').createSignedUrl(path, 3600)
+    return data?.signedUrl ?? null
+  },
+  async questionAudioUrl(path) {
+    const { data } = await sb().storage.from('question-audio').createSignedUrl(path, 3600)
     return data?.signedUrl ?? null
   },
   async listReminders() {

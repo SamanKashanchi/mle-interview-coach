@@ -298,6 +298,9 @@ export const mockBackend: Backend = {
   async audioUrl(path) {
     return mockAudio.get(path) ?? null
   },
+  async questionAudioUrl() {
+    return null // mock questions have no spoken version: Read aloud uses the phone's voice
+  },
   async listReminders() {
     await wait()
     return [...state.reminders].sort((a, b) => a.at.localeCompare(b.at))

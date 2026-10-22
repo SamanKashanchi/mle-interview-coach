@@ -504,3 +504,45 @@ select cron.schedule('send-reminders', '*/5 * * * *', $cron$
     body := '{}'::jsonb,
     timeout_milliseconds := 30000)
 $cron$);
+
+-- Read aloud with a natural voice: the Mac mini worker speaks each new question with Kokoro (runs on
+-- the Mac) and uploads it through the question-audio edge function, which sets questions.audio_path
+-- (<user id>/<question id>.m4a in the private question-audio bucket). The portal plays it and falls
+-- back to the phone's own voice while it's missing.
+alter table public.questions add column if not exists audio_path text;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('question-audio', 'question-audio', false, 20971520, array['audio/*'])
+on conflict (id) do nothing;
+drop policy if exists "own question audio" on storage.objects;
+create policy "own question audio" on storage.objects for select to authenticated
+  using (bucket_id = 'question-audio' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- The Mac's key for the question-audio function: worker/setup.sh makes a random key, keeps it in
+-- worker/.worker-token and registers only its sha256 here. No policies, so only the service role reads it.
+create table if not exists public.worker_tokens (
+  hash text primary key,
+  created_at timestamptz not null default now()
+);
+alter table public.worker_tokens enable row level security;
+
+-- worker_todo() with a 5th count, audio: questions from the last 3 days without audio yet.
+create or replace function public.worker_todo(p_today date) returns json
+language sql stable security definer set search_path = public
+as $$
+  select json_build_object(
+    'grade', (select count(*) from answers where status = 'pending'),
+    'research', (select count(*) from (
+        select distinct t.company_id, t.role_id from targets t
+        where not exists (select 1 from research_profiles rp
+                          where rp.company_id = t.company_id and rp.role_id = t.role_id and rp.status = 'done')) x),
+    'questions', (select count(*) from profiles p
+        where exists (select 1 from targets t where t.user_id = p.user_id)
+          and not exists (select 1 from questions q where q.user_id = p.user_id and q.set_date = p_today and q.request_id is null)),
+    'requests', (select count(*) from question_requests
+        where status = 'pending' or (status = 'working' and started_at < now() - interval '1 hour')),
+    'audio', (select count(*) from questions where audio_path is null and created_at > now() - interval '3 days')
+  )
+$$;
+revoke all on function public.worker_todo(date) from public;
+grant execute on function public.worker_todo(date) to anon, authenticated;
